@@ -1,0 +1,9 @@
+﻿.note-form { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: .75rem; }
+.note-form label { font-weight: 600; color: var(--text-h); }
+.note-form textarea { width: 100%; max-width: 100%; resize: vertical; min-height: 10rem; padding: 1rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--bg-secondary); color: var(--text-h); font-size: 1rem; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.note-form textarea::placeholder { color: var(--text); opacity: 1; }
+.note-form-result { width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; }
+.note-form-result:empty { display: none; }
+.note-form-result strong { color: var(--accent); }
+@media (max-width: 767px) { .note-form .main-button { width: 100%; } }
+

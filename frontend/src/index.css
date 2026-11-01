@@ -1,0 +1,75 @@
+﻿:root {
+  --text: #A8A3B8;
+  --text-h: #F8F7FC;
+  --bg: #09070F;
+  --bg-secondary: #14121F;
+  --bg-card: #1B1428;
+  --primary: #7C3AED;
+  --violet: #A855F7;
+  --button-hover: #6D28D9;
+  --glow: 0 16px 48px rgb(124 58 237 / 14%);
+  --border: rgba(168,85,247,0.22);
+  --accent: #c084fc;
+  --accent-bg: rgb(192 132 252 / 12%);
+  --accent-border: rgb(192 132 252 / 40%);
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --container-max: 192rem;
+  --page-gutter: clamp(1.25rem, 3vw, 5rem);
+  --section-space: 3rem;
+  --card-padding: 1.25rem;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+#root { min-height: 100svh; }
+h1, h2, h3 { color: var(--text-h); line-height: 1.2; overflow-wrap: anywhere; }
+h1, h2, h3, p { margin-top: 0; }
+p { margin-bottom: 0; }
+a { color: inherit; text-underline-offset: .25em; }
+button, input, textarea, select { font: inherit; }
+button, a, textarea { -webkit-tap-highlight-color: transparent; }
+img, svg, video { max-width: 100%; height: auto; }
+:where(p, a, label, li) { overflow-wrap: anywhere; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+:where(section, main) { scroll-margin-block-start: 1.5rem; }
+/* Shared shell for current sections and future pages. Width excludes gutters. */
+.page-container, .navbar, .main-content, .site-footer {
+  width: min(calc(100% - var(--page-gutter) * 2), var(--container-max));
+  margin-inline: auto;
+}
+/* Fluid spacing scales from compact phones through ultra-wide displays. */
+@media (max-width: 480px) {
+  :root { --page-gutter: 1rem; --section-space: 3.25rem; --card-padding: 1.125rem; }
+}
+@media (min-width: 481px) and (max-width: 767px) {
+  :root { --page-gutter: 1.5rem; --section-space: 3.75rem; --card-padding: 1.5rem; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root { --page-gutter: 2rem; --section-space: 4.25rem; --card-padding: 1.75rem; }
+}
+@media (min-width: 1024px) and (max-width: 1279px) {
+  :root { --page-gutter: 2rem; --section-space: 4.5rem; --card-padding: 1.5rem; }
+}
+@media (min-width: 1280px) and (max-width: 1599px) {
+  :root { --page-gutter: 2.5rem; --section-space: 5rem; --card-padding: 1.75rem; }
+}
+@media (min-width: 1600px) and (max-width: 1919px) {
+  :root { --page-gutter: 3rem; --section-space: 5.5rem; --card-padding: 2rem; }
+}
+@media (min-width: 1920px) and (max-width: 2559px) {
+  :root { --page-gutter: 4rem; --section-space: 6rem; --card-padding: 2.25rem; }
+}
+@media (min-width: 2560px) {
+  :root { --page-gutter: 5rem; --section-space: 6.5rem; --card-padding: 2.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

@@ -1,0 +1,218 @@
+[
+  {
+    "width": 320,
+    "overflow": [],
+    "overlap": false,
+    "columns": 1,
+    "container": 288,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 375,
+    "overflow": [],
+    "overlap": false,
+    "columns": 1,
+    "container": 343,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 390,
+    "overflow": [],
+    "overlap": false,
+    "columns": 1,
+    "container": 358,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 430,
+    "overflow": [],
+    "overlap": false,
+    "columns": 1,
+    "container": 395.59375,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 768,
+    "overflow": [],
+    "overlap": false,
+    "columns": 2,
+    "container": 704,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 1024,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 960,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 1280,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 1200,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 1366,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 1286,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 1440,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 1360,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 1536,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 1440,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 1920,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 1440,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  },
+  {
+    "width": 2560,
+    "overflow": [],
+    "overlap": false,
+    "columns": 3,
+    "container": 1440,
+    "aligned": true,
+    "textareaFont": "16px",
+    "theme": {
+      "background": "rgb(9, 9, 15)",
+      "card": "rgb(29, 25, 43)",
+      "font": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+      "stylesheets": 5
+    },
+    "noteSave": "passed",
+    "longNote": "passed",
+    "navigation": "passed"
+  }
+]

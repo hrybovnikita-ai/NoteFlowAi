@@ -1,0 +1,10 @@
+.site-footer-shell { width: 100%; border-top: 1px solid var(--border); }
+.site-footer { padding-block: 2rem; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; font-size: 1rem; }
+.site-footer > * { min-width: 0; }
+.site-footer a { display: inline-flex; align-items: center; min-height: 2.75rem; color: var(--text-h); text-decoration: none; transition: color .2s; }
+.site-footer .footer-brand { font-size: 1.375rem; font-weight: 700; }
+.site-footer p { margin-top: .5rem; }
+.site-footer nav { display: flex; align-items: start; flex-wrap: wrap; gap: .75rem 1.5rem; }
+.site-footer a:hover { color: var(--accent); }
+.footer-bottom { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: .875rem; }
+@media (max-width: 767px) { .site-footer { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; } }
