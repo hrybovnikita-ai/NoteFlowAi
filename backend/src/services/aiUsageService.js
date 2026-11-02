@@ -41,7 +41,7 @@ function createAiUsageService(db, {
     const { day, resetAt } = getDay(now);
     const plan = effectivePlan(account, now);
     let used;
-    if (db.kind === "firestore") {
+    if (db.kind === "firestore" || db.kind === "postgres") {
       used = 0;
     } else {
       used = db.prepare("SELECT request_count FROM ai_usage_daily WHERE firebase_uid = ? AND usage_date = ?")
@@ -65,6 +65,13 @@ function createAiUsageService(db, {
       const snapshot = await db.firestore.collection("users").doc(db.safeId(uid))
         .collection("aiUsage").doc(day).get();
       result.used = Number(snapshot.data()?.requestCount || 0);
+      result.remaining = Math.max(0, result.limit - result.used);
+    } else if (db.kind === "postgres") {
+      const { day } = getDay(now);
+      result.used = Number((await db.query(
+        "SELECT request_count FROM ai_usage_daily WHERE firebase_uid = $1 AND usage_date = $2",
+        [uid, day],
+      )).rows[0]?.request_count || 0);
       result.remaining = Math.max(0, result.limit - result.used);
     }
     return result;
@@ -121,6 +128,68 @@ function createAiUsageService(db, {
         used: reservation.used,
         limit: reservation.limit,
         remaining: Math.max(0, reservation.limit - reservation.used),
+        resetAt,
+      };
+    }
+
+    if (db.kind === "postgres") {
+      const account = await accountFor(uid);
+      const plan = effectivePlan(account, now);
+      const limit = DAILY_LIMITS[plan];
+      const reservation = await db.transaction(async client => {
+        const duplicate = await client.query(
+          "SELECT 1 FROM ai_usage_requests WHERE firebase_uid = $1 AND usage_date = $2 AND request_id = $3",
+          [uid, day, requestId],
+        );
+        if (duplicate.rowCount) {
+          throw new HttpError(409, "This AI request was already submitted. Start a new request to retry.", "AI_REQUEST_ALREADY_COUNTED");
+        }
+        await client.query(
+          "INSERT INTO ai_usage_daily (firebase_uid, usage_date) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+          [uid, day],
+        );
+        await client.query(
+          "INSERT INTO ai_usage_global_daily (usage_date) VALUES ($1) ON CONFLICT DO NOTHING",
+          [day],
+        );
+        const [usageRow, globalRow] = await Promise.all([
+          client.query("SELECT request_count FROM ai_usage_daily WHERE firebase_uid = $1 AND usage_date = $2 FOR UPDATE", [uid, day]),
+          client.query("SELECT request_count FROM ai_usage_global_daily WHERE usage_date = $1 FOR UPDATE", [day]),
+        ]);
+        const duplicateAfterLock = await client.query(
+          "SELECT 1 FROM ai_usage_requests WHERE firebase_uid = $1 AND usage_date = $2 AND request_id = $3",
+          [uid, day, requestId],
+        );
+        if (duplicateAfterLock.rowCount) {
+          throw new HttpError(409, "This AI request was already submitted. Start a new request to retry.", "AI_REQUEST_ALREADY_COUNTED");
+        }
+        const used = Number(usageRow.rows[0].request_count);
+        const globalUsed = Number(globalRow.rows[0].request_count);
+        if (used >= limit) {
+          throw new HttpError(429, "Your daily AI message limit has been reached.", "AI_DAILY_LIMIT", {
+            plan: plan === "team" ? "pro" : plan, used, limit, remaining: 0, resetAt,
+          });
+        }
+        if (globalUsed >= globalLimit) {
+          throw new HttpError(503, "The service has reached its daily AI capacity. Please try again after the reset.", "AI_GLOBAL_DAILY_LIMIT", { resetAt });
+        }
+        await client.query(
+          "INSERT INTO ai_usage_requests (firebase_uid, usage_date, request_id, action) VALUES ($1, $2, $3, $4)",
+          [uid, day, requestId, action],
+        );
+        await client.query(
+          "UPDATE ai_usage_daily SET request_count = request_count + 1 WHERE firebase_uid = $1 AND usage_date = $2",
+          [uid, day],
+        );
+        await client.query("UPDATE ai_usage_global_daily SET request_count = request_count + 1 WHERE usage_date = $1", [day]);
+        return used + 1;
+      });
+      logReservation(action, plan, reservation, limit);
+      return {
+        plan: plan === "team" ? "pro" : plan,
+        used: reservation,
+        limit,
+        remaining: Math.max(0, limit - reservation),
         resetAt,
       };
     }

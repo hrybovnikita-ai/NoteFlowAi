@@ -668,7 +668,7 @@ export default function DashboardLayout({ session, onLogout, logoutError }) {
   };
 
   return (
-    <div className={`dashboard-shell${location.pathname === "/chat" ? " is-chat" : ""}`}>
+    <div className={`dashboard-shell${location.pathname.startsWith("/chat") ? " is-chat" : ""}`}>
       {mobileNavOpen && <button className="dashboard-sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
       <aside className={`dashboard-sidebar${mobileNavOpen ? " is-open" : ""}`}>
         <Link className="dashboard-brand" to="/dashboard"><img className="dashboard-brand-logo" src="/favicon.png" alt="" /><span className="dashboard-brand-name">NoteFlow<span>AI</span></span></Link>

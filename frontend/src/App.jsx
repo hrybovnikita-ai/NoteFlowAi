@@ -391,7 +391,10 @@ export default function App() {
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
       <Route path="/chat" element={<ProtectedRoute session={session} authLoading={authLoading} onLogout={logout} logoutError={logoutError} />}>
-        <Route index element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading chat…</main>}><ChatPage key={session?.uid} /></Suspense>} />
+        <Route index element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading chat…</main>}><ChatPage key={`${session?.uid}:${location.pathname}`} /></Suspense>} />
+      </Route>
+      <Route path="/chat/:conversationId" element={<ProtectedRoute session={session} authLoading={authLoading} onLogout={logout} logoutError={logoutError} />}>
+        <Route index element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading chat…</main>}><ChatPage key={`${session?.uid}:${location.pathname}`} /></Suspense>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

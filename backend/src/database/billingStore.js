@@ -1,5 +1,48 @@
 const defaults = uid => ({ firebase_uid: uid, plan: 'free', status: 'free', customer_id: null, subscription_id: null, period_start: null, period_end: null, cancel_at_period_end: 0, synced_at: null, checkout_id: null, checkout_key: null, checkout_plan: null, checkout_started: null, lock_until: 0 });
 function createBillingStore(db) {
+  if (db.kind === 'postgres') {
+    const allowedFields = new Set([
+      'customer_id', 'subscription_id', 'plan', 'status', 'period_start',
+      'period_end', 'cancel_at_period_end', 'synced_at', 'checkout_id',
+      'checkout_key', 'checkout_plan', 'checkout_started', 'lock_owner', 'lock_until',
+    ]);
+    return {
+      async row(uid) {
+        return (await db.query('SELECT * FROM subscriptions WHERE firebase_uid = $1', [uid])).rows[0];
+      },
+      async ensure(uid) {
+        await db.query('INSERT INTO subscriptions (firebase_uid) VALUES ($1) ON CONFLICT (firebase_uid) DO NOTHING', [uid]);
+        return this.row(uid);
+      },
+      async update(uid, fields) {
+        const entries = Object.entries(fields);
+        if (entries.some(([key]) => !allowedFields.has(key))) throw new Error('Unsupported billing update field.');
+        if (!entries.length) return;
+        const values = [...entries.map(([, value]) => value), uid];
+        const assignments = entries.map(([key], index) => `${key} = $${index + 1}`).join(', ');
+        await db.query(`UPDATE subscriptions SET ${assignments} WHERE firebase_uid = $${values.length}`, values);
+      },
+      async claim(uid, owner) {
+        const result = await db.query(
+          `UPDATE subscriptions SET lock_owner = $1, lock_until = $2
+           WHERE firebase_uid = $3 AND lock_until < $4`,
+          [owner, Date.now() + 120000, uid, Date.now()],
+        );
+        return result.rowCount > 0;
+      },
+      release: (uid, owner) => db.query(
+        'UPDATE subscriptions SET lock_until = 0 WHERE firebase_uid = $1 AND lock_owner = $2',
+        [uid, owner],
+      ),
+      async seen(id) {
+        return (await db.query('SELECT 1 FROM billing_events WHERE id = $1', [id])).rowCount > 0;
+      },
+      record: id => db.query('INSERT INTO billing_events (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [id]),
+      async customer(id) {
+        return (await db.query('SELECT firebase_uid FROM subscriptions WHERE customer_id = $1', [id])).rows[0];
+      },
+    };
+  }
   if (db.kind === 'firestore') {
     const accounts = db.firestore.collection('billingAccounts');
     const events = db.firestore.collection('billingEvents');

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterConversations, readSelectedConversation, saveSelectedConversation } from "./chatState.js";
+import { buildFollowups, filterConversations, readSelectedConversation, saveSelectedConversation } from "./chatState.js";
 
 function createStorage() {
   const values = new Map();
@@ -27,4 +27,10 @@ test("conversation search is case-insensitive and searches titles", () => {
   assert.deepEqual(filterConversations(conversations, " PROJECT "), [conversations[0]]);
   assert.deepEqual(filterConversations(conversations, "new chat"), [conversations[2]]);
   assert.deepEqual(filterConversations(conversations, " "), conversations);
+});
+
+test("follow-up prompts use the user's topic and match supported input languages", () => {
+  assert.match(buildFollowups("Explain photosynthesis in simple terms")[0], /photosynthesis/);
+  assert.match(buildFollowups("Поясни, як працює сонячна енергія")[0], /сонячна енергія/);
+  assert.match(buildFollowups("Объясни, как работает солнечная энергия")[0], /солнечная энергия/);
 });

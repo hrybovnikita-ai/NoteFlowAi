@@ -42,6 +42,7 @@ beforeEach(() => {
     db,
     chatAiService: mockChatAi,
     verifyIdToken: async (token) => {
+      if (token === "expired") throw Object.assign(new Error("token expired"), { code: "auth/id-token-expired" });
       if (!users[token]) throw new Error("invalid token");
       return users[token];
     },
@@ -59,6 +60,8 @@ test("protected API rejects missing and invalid Firebase ID tokens", async () =>
   await request(app).get("/api/notes").expect(401);
   const response = await request(app).get("/api/notes").set(auth("invalid")).expect(401);
   assert.equal(response.body.error.code, "INVALID_TOKEN");
+  await request(app).get("/api/notes").set(auth("expired")).expect(401)
+    .expect(result => assert.equal(result.body.error.code, "INVALID_TOKEN"));
 });
 
 test("auth profile and sync use only verified token identity", async () => {
@@ -175,6 +178,43 @@ test("chat conversations and messages are private and support lifecycle operatio
   await request(app).get(`/api/chat/conversations/${conversationId}/messages`).set(auth()).expect(404);
 });
 
+test("conversation history paginates without repeating entries when timestamps tie", async () => {
+  for (let index = 0; index < 3; index += 1) {
+    await request(app).post("/api/chat/conversations").set(auth()).send({}).expect(201);
+  }
+  const first = await request(app).get("/api/chat/conversations?limit=2").set(auth()).expect(200);
+  assert.equal(first.body.items.length, 2);
+  assert.equal(first.body.pagination.hasMore, true);
+  const second = await request(app).get(`/api/chat/conversations?limit=2&cursor=${encodeURIComponent(first.body.pagination.nextCursor)}`).set(auth()).expect(200);
+  assert.equal(second.body.items.length, 1);
+  assert.equal(second.body.pagination.hasMore, false);
+  assert.equal(new Set([...first.body.items, ...second.body.items].map(item => item.id)).size, 3);
+  await request(app).get("/api/chat/conversations?limit=101").set(auth()).expect(400);
+});
+
+test("chat messages paginate in chronological order and edited turns discard later context", async () => {
+  const { body: { item: conversation } } = await request(app).post("/api/chat/conversations").set(auth()).send({}).expect(201);
+  const path = `/api/chat/conversations/${conversation.id}/messages/stream`;
+  const firstTurn = "9ba7e340-c95f-4e8d-a60c-d45d1c351cef";
+  const secondTurn = "17413dcf-ed29-4df7-b90a-7cc3ad6ea2a8";
+  await request(app).post(path).set(auth()).send({ turnId: firstTurn, message: "First prompt" }).expect(200);
+  await request(app).post(path).set(auth()).send({ turnId: secondTurn, message: "Second prompt" }).expect(200);
+
+  const firstPage = await request(app).get(`/api/chat/conversations/${conversation.id}/messages?limit=2`).set(auth()).expect(200);
+  assert.deepEqual(firstPage.body.items.map(message => message.content), ["Second prompt", "Hello from NoteFlow."]);
+  assert.equal(firstPage.body.pagination.hasMore, true);
+  const secondPage = await request(app).get(`/api/chat/conversations/${conversation.id}/messages?limit=2&beforeSeq=${firstPage.body.pagination.nextBeforeSeq}`).set(auth()).expect(200);
+  assert.deepEqual(secondPage.body.items.map(message => message.content), ["First prompt", "Hello from NoteFlow."]);
+
+  await request(app).patch(`/api/chat/conversations/${conversation.id}/messages/${firstTurn}`).set(auth("bob")).send({ content: "Not yours" }).expect(404);
+  await request(app).patch(`/api/chat/conversations/${conversation.id}/messages/${firstTurn}`).set(auth()).send({ content: "Updated first prompt" }).expect(200);
+  await request(app).post(path).set(auth()).send({ turnId: firstTurn, message: "Updated first prompt" }).expect(200);
+  const edited = await request(app).get(`/api/chat/conversations/${conversation.id}/messages`).set(auth()).expect(200);
+  assert.deepEqual(edited.body.items.map(message => message.content), ["Updated first prompt", "Hello from NoteFlow."]);
+  await request(app).delete(`/api/chat/conversations/${conversation.id}/messages`).set(auth()).expect(204);
+  assert.deepEqual((await request(app).get(`/api/chat/conversations/${conversation.id}/messages`).set(auth()).expect(200)).body.items, []);
+});
+
 test("chat streams, persists, deduplicates, and regenerates a turn", async () => {
   const { body: { item: conversation } } = await request(app).post("/api/chat/conversations").set(auth()).send({}).expect(201);
   const turnId = "9ba7e340-c95f-4e8d-a60c-d45d1c351cef";
@@ -222,6 +262,7 @@ test("chat failures are surfaced and failed turns can be retried", async () => {
   await request(app).post(path).set(auth()).send({ turnId, message: "Try this" }).expect(200);
   const messages = await request(app).get(`/api/chat/conversations/${conversation.id}/messages`).set(auth()).expect(200);
   assert.deepEqual(messages.body.items.map(message => message.status), ["complete", "complete"]);
+  assert.deepEqual(messages.body.items.map(message => message.seq), [1, 2]);
 });
 
 test("failed chat turns are omitted from later Gemini context", async () => {

@@ -44,6 +44,9 @@ the Contact section links to the quick-note form.
 
 The app includes `/dashboard` and nested notes, favorites, collections, tags,
 search, and settings routes. Firebase Authentication protects dashboard routes.
+Authenticated chat is available at `/chat` and `/chat/:conversationId`; its
+conversation and message history is restored from the backend when revisiting
+the route or returning from another workspace section.
 The dashboard obtains a Firebase ID token and sends it to the API as a Bearer
 token; it does not use a demo session or browser storage as authentication.
 
@@ -66,6 +69,9 @@ the frontend directory.
 Configure `GEMINI_API_KEY` and optionally `GEMINI_MODEL` only in
 `backend/.env`; never add the Gemini key to a `VITE_` variable or frontend
 environment file.
+Chat streams directly from the Google GenAI SDK through Express, uses the
+server-calculated plan allowance, and preserves partial output when a stream
+fails or is stopped.
 
 ## Firebase Google sign-in
 

@@ -171,7 +171,10 @@ async function chatStream({ conversationId, turnId, message, regenerate = false,
         }
         onEvent?.(event, payload);
         if (event === "error") {
-          throw Object.assign(new Error(payload.message || "The AI response failed. Please retry."), { code: payload.code || "CHAT_GENERATION_FAILED" });
+          throw Object.assign(new Error(payload.message || "The AI response failed. Please retry."), {
+            code: payload.code || "CHAT_GENERATION_FAILED",
+            details: payload.details,
+          });
         }
         if (event === "complete") {
           await reader.cancel();
@@ -227,9 +230,11 @@ export const api = {
     ask: (input) => request("/ai/ask", { method: "POST", body: input }),
   },
   chat: {
-    conversations: () => request("/chat/conversations"),
+    conversations: (query) => request("/chat/conversations", { query }),
     createConversation: () => request("/chat/conversations", { method: "POST", body: {} }),
-    messages: (id) => request(`/chat/conversations/${encodeURIComponent(id)}/messages`),
+    messages: (id, query) => request(`/chat/conversations/${encodeURIComponent(id)}/messages`, { query }),
+    editMessage: (id, turnId, content) => request(`/chat/conversations/${encodeURIComponent(id)}/messages/${encodeURIComponent(turnId)}`, { method: "PATCH", body: { content } }),
+    clearMessages: (id) => request(`/chat/conversations/${encodeURIComponent(id)}/messages`, { method: "DELETE" }),
     rename: (id, title) => request(`/chat/conversations/${encodeURIComponent(id)}`, { method: "PATCH", body: { title } }),
     remove: (id) => request(`/chat/conversations/${encodeURIComponent(id)}`, { method: "DELETE" }),
     stream: chatStream,

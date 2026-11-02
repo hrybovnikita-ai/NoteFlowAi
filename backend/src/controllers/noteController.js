@@ -97,7 +97,7 @@ function createNoteController(db) {
       res.status(204).end();
     },
     async removeAll(req, res) {
-      if (db.kind === 'firestore') return res.json({ deleted: await db.removeAllNotes(req.user.id) });
+      if (db.kind === 'firestore' || db.kind === 'postgres') return res.json({ deleted: await db.removeAllNotes(req.user.id) });
       const result = db.prepare("DELETE FROM notes WHERE user_id = ?").run(req.user.id);
       res.json({ deleted: result.changes });
     },

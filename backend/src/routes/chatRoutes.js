@@ -35,7 +35,35 @@ function createChatRouter({ db, aiService, usageService }) {
   const uid = req => db.kind === "firestore" ? req.user.firebaseUid : req.user.id;
 
   router.get("/conversations", async (req, res) => {
-    res.json({ items: await store.list(uid(req)) });
+    const limit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new HttpError(400, "limit must be an integer between 1 and 100.", "INVALID_INPUT");
+    }
+    let cursor;
+    if (req.query.cursor !== undefined) {
+      if (typeof req.query.cursor !== "string" || req.query.cursor.length > 512) {
+        throw new HttpError(400, "cursor is invalid.", "INVALID_INPUT");
+      }
+      try {
+        cursor = JSON.parse(Buffer.from(req.query.cursor, "base64url").toString("utf8"));
+      } catch {
+        throw new HttpError(400, "cursor is invalid.", "INVALID_INPUT");
+      }
+      if (!cursor || typeof cursor.updatedAt !== "string" || typeof cursor.id !== "string" || !cursor.id) {
+        throw new HttpError(400, "cursor is invalid.", "INVALID_INPUT");
+      }
+    }
+    const rows = await store.list(uid(req), { limit, cursor });
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit);
+    const last = items.at(-1);
+    res.json({
+      items,
+      pagination: {
+        hasMore,
+        nextCursor: hasMore && last ? Buffer.from(JSON.stringify({ updatedAt: last.updatedAt, id: last.id })).toString("base64url") : null,
+      },
+    });
   });
 
   router.post("/conversations", async (req, res) => {
@@ -49,7 +77,24 @@ function createChatRouter({ db, aiService, usageService }) {
   router.get("/conversations/:id/messages", async (req, res) => {
     const conversation = await store.get(uid(req), req.params.id);
     if (!conversation) throw new HttpError(404, "Conversation not found.", "NOT_FOUND");
-    res.json({ items: await store.listMessages(uid(req), req.params.id) });
+    const limit = req.query.limit === undefined ? 100 : Number(req.query.limit);
+    const beforeSeq = req.query.beforeSeq === undefined ? undefined : Number(req.query.beforeSeq);
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new HttpError(400, "limit must be an integer between 1 and 100.", "INVALID_INPUT");
+    }
+    if (beforeSeq !== undefined && (!Number.isSafeInteger(beforeSeq) || beforeSeq < 1)) {
+      throw new HttpError(400, "beforeSeq must be a positive integer.", "INVALID_INPUT");
+    }
+    const items = await store.listMessages(uid(req), req.params.id, { limit, beforeSeq });
+    const hasMore = items.length > limit;
+    const pageItems = hasMore ? items.slice(-limit) : items;
+    res.json({
+      items: pageItems,
+      pagination: {
+        hasMore,
+        nextBeforeSeq: hasMore ? pageItems[0].seq : null,
+      },
+    });
   });
 
   router.patch("/conversations/:id", async (req, res) => {
@@ -66,12 +111,31 @@ function createChatRouter({ db, aiService, usageService }) {
     res.status(204).end();
   });
 
+  router.delete("/conversations/:id/messages", async (req, res) => {
+    if (!await store.clear(uid(req), req.params.id)) throw new HttpError(404, "Conversation not found.", "NOT_FOUND");
+    res.status(204).end();
+  });
+
+  router.patch("/conversations/:id/messages/:turnId", async (req, res) => {
+    requireObject(req.body);
+    if (Object.keys(req.body).some(key => key !== "content")) {
+      throw new HttpError(400, "Only the user message content can be changed.", "INVALID_INPUT");
+    }
+    const content = requireString(req.body.content, "content", { min: 1, max: 12000 });
+    if (!uuidPattern.test(req.params.turnId)) throw new HttpError(400, "turnId must be a UUID.", "INVALID_INPUT");
+    if (!await store.editTurn(uid(req), req.params.id, req.params.turnId, content)) {
+      throw new HttpError(404, "User message not found.", "NOT_FOUND");
+    }
+    res.json({ items: await store.listMessages(uid(req), req.params.id) });
+  });
+
   router.post("/conversations/:id/messages/stream", async (req, res, next) => {
     const userId = uid(req);
     const conversationId = req.params.id;
     let turn;
     let completed = false;
     let turnId;
+    let content = "";
     const abortController = new AbortController();
     res.on("close", () => {
       if (!res.writableEnded && !completed) abortController.abort();
@@ -101,7 +165,6 @@ function createChatRouter({ db, aiService, usageService }) {
       res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
       res.flushHeaders?.();
       sendEvent(res, "start", { turnId: input.turnId });
-      let content = "";
       for await (const event of aiService.events(upstream)) {
         content += event.text;
         sendEvent(res, "delta", event);
@@ -113,7 +176,7 @@ function createChatRouter({ db, aiService, usageService }) {
       res.end();
     } catch (error) {
       if (turn && !turn.cached && !completed) {
-        await store.failTurn(userId, conversationId, turnId);
+        await store.failTurn(userId, conversationId, turnId, content);
       }
       if (res.destroyed || abortController.signal.aborted) return;
       if (!res.headersSent) return next(error);
@@ -123,6 +186,7 @@ function createChatRouter({ db, aiService, usageService }) {
       sendEvent(res, "error", {
         code: error.code || "CHAT_GENERATION_FAILED",
         message: error instanceof HttpError ? error.message : "The AI response failed. Please retry.",
+        ...(error.details ? { details: error.details } : {}),
       });
       res.end();
     }

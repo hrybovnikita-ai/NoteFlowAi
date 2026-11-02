@@ -16,7 +16,7 @@ function createAuthenticate({ db, verifyIdToken }) {
       }
 
       verified = true;
-      if (db.kind === 'firestore') {
+      if (db.kind === 'firestore' || db.kind === "postgres") {
         req.user = await db.profile(claims);
         return next();
       }

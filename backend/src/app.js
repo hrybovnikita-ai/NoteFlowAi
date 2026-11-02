@@ -11,7 +11,7 @@ const { createTaxonomyRouter } = require("./routes/taxonomyRoutes");
 const { createAiRouter } = require("./routes/aiRoutes");
 const { createAuthRouter } = require("./routes/authRoutes");
 const { createGeminiService } = require("./services/geminiService");
-const { createChatAiService } = require("./services/chatAiService");
+const { createGeminiChatService } = require("./services/geminiChatService");
 const { createChatRouter } = require("./routes/chatRoutes");
 const { HttpError } = require("./utils/httpError");
 const { createBillingService } = require('./services/billingService');
@@ -77,7 +77,7 @@ function createApp({ db, verifyIdToken, aiService, chatAiService, billingProvide
     standardHeaders: "draft-8",
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === "test",
-  }), createChatRouter({ db, aiService: chatAiService || createChatAiService(), usageService: aiUsage }));
+  }), createChatRouter({ db, aiService: chatAiService || createGeminiChatService(), usageService: aiUsage }));
   app.use("/api", api);
 
   app.use((req, res, next) => next(new HttpError(404, "Route not found.", "NOT_FOUND")));
