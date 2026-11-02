@@ -1,6 +1,8 @@
 const { HttpError } = require("../utils/httpError");
 const { parseInteger, requireId, requireObject, requireString } = require("../utils/validation");
 const { createNote, deleteNote, getNote, listNotes, updateNote } = require("../services/noteService");
+const { createBillingStore } = require("../database/billingStore");
+const { effectivePlan } = require("../services/aiUsageService");
 
 const NOTE_FIELDS = new Set(["title", "content", "favorite", "archived", "collection", "tags"]);
 
@@ -66,43 +68,50 @@ function parseListOptions(query) {
 }
 
 function createNoteController(db) {
+  const billing = createBillingStore(db);
+  const noteLimits = { free: 30, plus: 500, team: null };
   return {
-    list(req, res) {
-      res.json(listNotes(db, req.user.id, parseListOptions(req.query)));
+    async list(req, res) {
+      res.json(await listNotes(db, req.user.id, parseListOptions(req.query)));
     },
-    create(req, res) {
-      const note = createNote(db, req.user.id, parseNoteInput(req.body));
+    async create(req, res) {
+      const account = await billing.ensure(req.user.firebaseUid);
+      const plan = effectivePlan(account, Date.now());
+      const note = await createNote(db, req.user.id, parseNoteInput(req.body), {
+        maxNotes: noteLimits[plan],
+      });
       res.status(201).json({ item: note });
     },
-    get(req, res) {
-      const note = getNote(db, req.user.id, requireId(req.params.id));
+    async get(req, res) {
+      const note = await getNote(db, req.user.id, requireId(req.params.id));
       if (!note) throw new HttpError(404, "Note not found.", "NOT_FOUND");
       res.json({ item: note });
     },
-    update(req, res) {
-      const note = updateNote(db, req.user.id, requireId(req.params.id), parseNoteInput(req.body, { partial: true }));
+    async update(req, res) {
+      const note = await updateNote(db, req.user.id, requireId(req.params.id), parseNoteInput(req.body, { partial: true }));
       if (!note) throw new HttpError(404, "Note not found.", "NOT_FOUND");
       res.json({ item: note });
     },
-    remove(req, res) {
-      if (!deleteNote(db, req.user.id, requireId(req.params.id))) throw new HttpError(404, "Note not found.", "NOT_FOUND");
+    async remove(req, res) {
+      if (!await deleteNote(db, req.user.id, requireId(req.params.id))) throw new HttpError(404, "Note not found.", "NOT_FOUND");
       res.status(204).end();
     },
-    removeAll(req, res) {
+    async removeAll(req, res) {
+      if (db.kind === 'firestore') return res.json({ deleted: await db.removeAllNotes(req.user.id) });
       const result = db.prepare("DELETE FROM notes WHERE user_id = ?").run(req.user.id);
       res.json({ deleted: result.changes });
     },
-    favorite(req, res) {
+    async favorite(req, res) {
       requireObject(req.body);
       if (typeof req.body.favorite !== "boolean") throw new HttpError(400, "favorite must be a boolean.", "INVALID_INPUT");
-      const note = updateNote(db, req.user.id, requireId(req.params.id), { favorite: req.body.favorite });
+      const note = await updateNote(db, req.user.id, requireId(req.params.id), { favorite: req.body.favorite });
       if (!note) throw new HttpError(404, "Note not found.", "NOT_FOUND");
       res.json({ item: note });
     },
-    archive(req, res) {
+    async archive(req, res) {
       requireObject(req.body);
       if (typeof req.body.archived !== "boolean") throw new HttpError(400, "archived must be a boolean.", "INVALID_INPUT");
-      const note = updateNote(db, req.user.id, requireId(req.params.id), { archived: req.body.archived });
+      const note = await updateNote(db, req.user.id, requireId(req.params.id), { archived: req.body.archived });
       if (!note) throw new HttpError(404, "Note not found.", "NOT_FOUND");
       res.json({ item: note });
     },

@@ -1,7 +1,8 @@
 const { applicationDefault, cert, getApps, initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 
-function createFirebaseTokenVerifier() {
+function getFirebaseAdminApp() {
+  if (process.env.NODE_ENV === 'production' && (process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST)) throw new Error('Emulators must not be enabled in production.');
   const projectId = process.env.FIREBASE_PROJECT_ID;
   if (!projectId) {
     const error = new Error("FIREBASE_PROJECT_ID is not configured.");
@@ -9,6 +10,11 @@ function createFirebaseTokenVerifier() {
     throw error;
   }
 
+  const existing = getApps().find(candidate => candidate.name === "noteflow-api");
+  if (existing) return existing;
+  if (process.env.FIRESTORE_EMULATOR_HOST) {
+    return initializeApp({ projectId }, 'noteflow-api');
+  }
   let credential;
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     let serviceAccount;
@@ -34,8 +40,12 @@ function createFirebaseTokenVerifier() {
 
   const app = getApps().find((candidate) => candidate.name === "noteflow-api")
     ?? initializeApp({ credential, projectId }, "noteflow-api");
-  const auth = getAuth(app);
+  return app;
+}
+
+function createFirebaseTokenVerifier() {
+  const auth = getAuth(getFirebaseAdminApp());
   return (token) => auth.verifyIdToken(token, true);
 }
 
-module.exports = { createFirebaseTokenVerifier };
+module.exports = { createFirebaseTokenVerifier, getFirebaseAdminApp };

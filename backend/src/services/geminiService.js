@@ -2,6 +2,10 @@ const { GoogleGenAI } = require("@google/genai");
 const { HttpError } = require("../utils/httpError");
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 2048);
+if (!Number.isSafeInteger(MAX_OUTPUT_TOKENS) || MAX_OUTPUT_TOKENS < 1 || MAX_OUTPUT_TOKENS > 8192) {
+  throw new Error("GEMINI_MAX_OUTPUT_TOKENS must be an integer between 1 and 8192.");
+}
 
 function mapGeminiError(error) {
   const status = Number(error?.status || error?.response?.status);
@@ -54,15 +58,16 @@ function createGeminiService({ apiKey = process.env.GEMINI_API_KEY, model = proc
       const response = await gemini.models.generateContent({
         model,
         contents: prompt,
-        ...(action === "tags" ? {
-          config: {
+        config: {
+          maxOutputTokens: MAX_OUTPUT_TOKENS,
+          ...(action === "tags" ? {
             responseMimeType: "application/json",
             responseSchema: {
               type: "ARRAY",
               items: { type: "STRING" },
             },
-          },
-        } : {}),
+          } : {}),
+        },
       });
       const text = response.text?.trim();
       if (!text) {

@@ -8,12 +8,18 @@ function createAuthenticate({ db, verifyIdToken }) {
       return next(new HttpError(401, "A Firebase ID token is required.", "UNAUTHENTICATED"));
     }
 
+    let verified = false;
     try {
       const claims = await verifyIdToken(match[1]);
       if (!claims?.uid || typeof claims.email !== "string" || !claims.email) {
         throw new HttpError(401, "The Firebase ID token has no valid user identity.", "INVALID_TOKEN");
       }
 
+      verified = true;
+      if (db.kind === 'firestore') {
+        req.user = await db.profile(claims);
+        return next();
+      }
       const upsert = db.prepare(`
         INSERT INTO users (firebase_uid, email, display_name, avatar_url)
         VALUES (@uid, @email, @displayName, @avatarUrl)
@@ -45,6 +51,7 @@ function createAuthenticate({ db, verifyIdToken }) {
         return next(new HttpError(503, "Firebase Admin authentication is not configured on the server.", "AUTH_NOT_CONFIGURED"));
       }
       if (error instanceof HttpError) return next(error);
+      if (verified) return next(new HttpError(503, 'Your account could not be synchronized. Please retry.', 'PROFILE_SYNC_FAILED'));
       return next(new HttpError(401, "The Firebase ID token is invalid or expired.", "INVALID_TOKEN"));
     }
   };

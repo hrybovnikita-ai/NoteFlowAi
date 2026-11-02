@@ -17,7 +17,13 @@ function errorHandler(error, req, res, next) {
   const code = error instanceof HttpError ? error.code : "INTERNAL_ERROR";
   const message = error instanceof HttpError ? error.message : "An unexpected server error occurred.";
   if (status >= 500) console.error("API request failed with internal error code:", error.code || "UNKNOWN");
-  return res.status(status).json({ error: { code, message } });
+  return res.status(status).json({
+    error: {
+      code,
+      message,
+      ...(error instanceof HttpError && error.details ? { details: error.details } : {}),
+    },
+  });
 }
 
 module.exports = { errorHandler };

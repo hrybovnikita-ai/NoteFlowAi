@@ -35,7 +35,28 @@ export function createAuthOperations({ auth, firebaseError, persistence, sdk }) 
   async function loginWithGoogle() {
     requireAuth();
     await sdk.setPersistence(auth, persistence);
-    return sdk.signInWithPopup(auth, sdk.googleProvider);
+    try {
+      return await sdk.signInWithPopup(auth, sdk.googleProvider);
+    } catch (error) {
+      if (!["auth/popup-blocked", "auth/operation-not-supported-in-this-environment"].includes(error?.code)) {
+        throw error;
+      }
+      await sdk.signInWithRedirect(auth, sdk.googleProvider);
+      return { redirecting: true };
+    }
+  }
+
+  async function linkPendingGoogleAccount(credential, user = auth.currentUser) {
+    requireAuth();
+    if (!user) throw new Error("Sign in to your existing account before linking Google.");
+    return sdk.linkWithCredential(user, credential);
+  }
+
+  async function linkEmailPassword(password, user = auth.currentUser) {
+    requireAuth();
+    if (!user?.email) throw new Error("The signed-in account must have an email address before adding password sign-in.");
+    const credential = sdk.emailCredential(user.email, password);
+    return sdk.linkWithCredential(user, credential);
   }
 
   async function logout() {
@@ -48,5 +69,5 @@ export function createAuthOperations({ auth, firebaseError, persistence, sdk }) 
     return sdk.sendPasswordResetEmail(auth, email.trim());
   }
 
-  return { register, login, loginWithGoogle, logout, sendPasswordReset };
+  return { register, login, loginWithGoogle, linkPendingGoogleAccount, linkEmailPassword, logout, sendPasswordReset };
 }

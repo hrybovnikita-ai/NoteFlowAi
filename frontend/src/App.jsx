@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth/useAuth";
 import "./App.css";
+import { CheckoutPage, CheckoutResult, LegalPage } from "./billing/Billing";
+import PricingPage from "./billing/Pricing";
+import { getFirebaseAuthMessage } from "./auth/firebaseAuthErrors";
 import Main from "./components/Main/Main";
 import Footer from "./components/Footer/Footer";
 import DashboardLayout, {
@@ -13,54 +16,9 @@ import DashboardLayout, {
   SettingsPage,
   TagsPage,
 } from "./components/Dashboard/Dashboard";
+const ChatPage = lazy(() => import("./chat/Chat"));
 
-function getFirebaseAuthMessage(error, method = "email") {
-  if (error?.code?.startsWith("auth/api-key-not-valid") || error?.code === "auth/invalid-api-key") {
-    return "Firebase rejected the API key. Check VITE_FIREBASE_API_KEY in frontend/.env.local and the Firebase web app configuration.";
-  }
-
-  switch (error?.code) {
-    case "auth/invalid-email":
-      return "Enter a valid email address.";
-    case "auth/invalid-credential":
-    case "auth/invalid-login-credentials":
-    case "auth/wrong-password":
-    case "auth/user-not-found":
-      return "The email or password is incorrect.";
-    case "auth/email-already-in-use":
-      return "An account already exists for this email. Try logging in instead.";
-    case "auth/missing-email":
-      return "Enter your email address.";
-    case "auth/weak-password":
-      return "Choose a stronger password with at least 8 characters.";
-    case "auth/user-disabled":
-      return "This account has been disabled. Contact support for help.";
-    case "auth/too-many-requests":
-      return "Too many attempts. Wait a little while, then try again.";
-    case "auth/missing-password":
-      return "Enter your password.";
-    case "auth/unauthorized-domain":
-      return "This website domain is not authorized by Firebase. Add localhost to Authentication → Settings → Authorized domains in Firebase Console.";
-    case "auth/popup-blocked":
-      return "The Google sign-in popup was blocked. Allow popups for this site and try again.";
-    case "auth/popup-closed-by-user":
-      return "The Google sign-in window was closed before authentication finished.";
-    case "auth/cancelled-popup-request":
-      return "Another Google sign-in window is already open. Finish or close it before trying again.";
-    case "auth/network-request-failed":
-      return "Firebase could not reach the network. Check your connection and try again.";
-    case "auth/operation-not-allowed":
-      return method === "google"
-        ? "Google sign-in is disabled for this Firebase project. Enable the Google provider in Firebase Console."
-        : "Email/password authentication is disabled for this Firebase project. Enable the Email/Password provider in Firebase Console → Authentication → Sign-in method.";
-    default:
-      return error?.message
-        ? `${method === "google" ? "Google sign-in" : "Email/password authentication"} failed: ${error.message}`
-        : `${method === "google" ? "Google sign-in" : "Email/password authentication"} failed. Please try again.`;
-  }
-}
-
-function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, autoOpenAuth = false, initialMode = "login", firebaseError = "" }) {
+function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, autoOpenAuth = false, initialMode = "login", firebaseError = "", authNotice = "" }) {
   const authDialogRef = useRef(null);
   const location = useLocation();
   const [authMode, setAuthMode] = useState(initialMode);
@@ -71,12 +29,14 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    if (autoOpenAuth && authDialogRef.current && !authDialogRef.current.open) {
+    if (!autoOpenAuth && !authNotice) return;
+    if (!authDialogRef.current) return;
+    if (!authDialogRef.current.open) {
       authDialogRef.current.showModal();
       setAuthMode(initialMode);
-      setAuthMessage(location.state?.authMessage ?? "");
     }
-  }, [autoOpenAuth, initialMode, location.state]);
+    setAuthMessage(location.state?.authMessage ?? authNotice ?? "");
+  }, [autoOpenAuth, initialMode, location.state, authNotice]);
 
   function openAuthDialog(mode) {
     setIsMobileNavOpen(false);
@@ -128,11 +88,17 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
     setAuthMessage("");
     try {
       const credential = await onGoogleSignIn();
+      if (credential?.redirecting) return;
       if (!credential?.user) {
         throw new Error("Firebase did not return an authenticated user.");
       }
     } catch (error) {
-      setAuthMessage(getFirebaseAuthMessage(error, "google"));
+      if (error?.code === "auth/account-exists-with-different-credential") {
+        setAuthMode("login");
+        setAuthMessage("An account already exists with this email using another sign-in method. Sign in with that method below to link Google to the same account.");
+      } else {
+        setAuthMessage(getFirebaseAuthMessage(error, "google"));
+      }
     } finally {
       setIsGoogleAuthenticating(false);
     }
@@ -142,7 +108,7 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
     <div>
       <header className="site-header">
         <nav className={`navbar page-container${isMobileNavOpen ? " is-menu-open" : ""}`}>
-          <Link className="logo" to="/">NoteFlowAi</Link>
+          <Link className="logo" to="/"><img src="/favicon.png" alt="" />NoteFlowAi</Link>
           <button
             className="nav-menu-toggle"
             type="button"
@@ -156,7 +122,7 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
           <ul className="nav-links" id="primary-navigation">
             <li><a href="#home" onClick={() => setIsMobileNavOpen(false)}>Home</a></li>
             <li><a href="#features" onClick={() => setIsMobileNavOpen(false)}>Features</a></li>
-            <li><a href="#pricing" onClick={() => setIsMobileNavOpen(false)}>Pricing</a></li>
+            <li><Link to="/pricing" onClick={() => setIsMobileNavOpen(false)}>Pricing</Link></li>
             <li><a href="#contact" onClick={() => setIsMobileNavOpen(false)}>Contact</a></li>
           </ul>
 
@@ -183,7 +149,7 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
         <button className="auth-dialog-close" type="button" aria-label="Close dialog" onClick={() => authDialogRef.current?.close()}>
           &times;
         </button>
-        <span className="auth-dialog-brand">NoteFlowAi</span>
+        <span className="auth-dialog-brand"><img src="/favicon.png" alt="" />NoteFlowAi</span>
         <h2 id="auth-dialog-title">{authMode === "signup" ? "Create your account" : authMode === "reset" ? "Reset your password" : "Welcome back"}</h2>
         <p id="auth-dialog-description">{authMode === "reset" ? "Enter your email and we’ll send password reset instructions if an account exists." : "Add your details to continue to your NoteFlowAi workspace."}</p>
 
@@ -312,13 +278,24 @@ export default function App() {
     user: firebaseUser,
     loading: authLoading,
     firebaseError,
+    authNotice,
     register,
     login,
     loginWithGoogle,
     logout: signOutUser,
     sendPasswordReset,
+    pendingGoogleLink,
+    linkPendingGoogleAccount,
+    googleRedirectComplete,
+    consumeGoogleRedirect,
   } = useAuth();
   const [logoutError, setLogoutError] = useState("");
+
+  useEffect(() => {
+    if (!firebaseUser || !googleRedirectComplete) return;
+    navigate("/dashboard", { replace: true });
+    consumeGoogleRedirect();
+  }, [firebaseUser, googleRedirectComplete, consumeGoogleRedirect, navigate]);
 
   async function authenticateWithEmailPassword(email, password, mode, fullName) {
     const credential = mode === "signup"
@@ -327,20 +304,20 @@ export default function App() {
     if (!credential.user) {
       throw new Error("Firebase did not confirm a signed-in user.");
     }
+    if (mode === "login" && pendingGoogleLink) await linkPendingGoogleAccount(credential.user);
 
-    const destination = location.state?.from?.pathname ?? "/dashboard";
-    navigate(destination, { replace: true });
+    navigate("/dashboard", { replace: true });
     return credential;
   }
 
   async function authenticateWithGoogle() {
     const credential = await loginWithGoogle();
-    if (!credential.user) {
+    if (credential?.redirecting) return credential;
+    if (!credential?.user) {
       throw new Error("Firebase did not confirm a signed-in user.");
     }
 
-    const destination = location.state?.from?.pathname ?? "/dashboard";
-    navigate(destination, { replace: true });
+    navigate("/dashboard", { replace: true });
     return credential;
   }
 
@@ -376,6 +353,7 @@ export default function App() {
     onGoogleSignIn: authenticateWithGoogle,
     onPasswordReset: sendPasswordReset,
     firebaseError,
+    authNotice,
   };
 
   function authLanding(mode) {
@@ -391,6 +369,13 @@ export default function App() {
       <Route path="/" element={<LandingPage {...landingProps} />} />
       <Route path="/home" element={<LandingPage {...landingProps} />} />
       <Route path="/login" element={authLanding("login")} />
+      <Route path="/register" element={authLanding("signup")} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/checkout" element={<CheckoutPage key={location.search} />} />
+      <Route path="/checkout/success" element={<CheckoutResult />} />
+      <Route path="/checkout/cancel" element={<CheckoutResult canceled />} />
+      <Route path="/terms" element={<LegalPage />} />
+      <Route path="/privacy" element={<LegalPage privacy />} />
       <Route path="/signup" element={authLanding("signup")} />
       <Route path="/dashboard" element={<ProtectedRoute session={session} authLoading={authLoading} onLogout={logout} logoutError={logoutError} />}>
         <Route index element={<DashboardHome />} />
@@ -401,8 +386,12 @@ export default function App() {
         <Route path="collections" element={<CollectionsPage />} />
         <Route path="tags" element={<TagsPage />} />
         <Route path="search" element={<SearchPage />} />
+        <Route path="pricing" element={<PricingPage embedded />} />
         <Route path="settings" element={<SettingsPage session={session} onLogout={logout} logoutError={logoutError} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
+      <Route path="/chat" element={<ProtectedRoute session={session} authLoading={authLoading} onLogout={logout} logoutError={logoutError} />}>
+        <Route index element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading chat…</main>}><ChatPage key={session?.uid} /></Suspense>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

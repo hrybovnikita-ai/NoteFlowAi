@@ -14,10 +14,16 @@ function createHarness(overrides = {}) {
   const sdk = {
     createUserWithEmailAndPassword: async (...args) => { calls.push(["register", ...args]); return credential; },
     googleProvider: { providerId: "google.com" },
+    emailCredential: (...args) => ({ providerId: "password", args }),
+    linkWithCredential: async (...args) => {
+      calls.push(["linkGoogle", ...args]);
+      return { user: args[0] };
+    },
     sendPasswordResetEmail: async (...args) => calls.push(["reset", ...args]),
     setPersistence: async (...args) => calls.push(["persistence", ...args]),
     signInWithEmailAndPassword: async (...args) => { calls.push(["login", ...args]); return credential; },
     signInWithPopup: async (...args) => { calls.push(["google", ...args]); return credential; },
+    signInWithRedirect: async (...args) => { calls.push(["googleRedirect", ...args]); },
     signOut: async (...args) => calls.push(["logout", ...args]),
     updateProfile: async (...args) => {
       calls.push(["updateProfile", ...args]);
@@ -65,6 +71,44 @@ test("Google login opens the configured provider with persistent auth", async ()
   await operations.loginWithGoogle();
   assert.deepEqual(calls.map(([name]) => name), ["persistence", "google"]);
   assert.equal(calls[1][2].providerId, "google.com");
+  assert.equal(calls.some(([name]) => name === "register"), false);
+});
+
+test("Google login falls back to redirect when the popup is blocked", async () => {
+  const { calls, operations } = createHarness({
+    signInWithPopup: async () => { throw Object.assign(new Error("blocked"), { code: "auth/popup-blocked" }); },
+  });
+  const result = await operations.loginWithGoogle();
+  assert.deepEqual(result, { redirecting: true });
+  assert.deepEqual(calls.map(([name]) => name), ["persistence", "googleRedirect"]);
+});
+
+test("existing password accounts can link a pending Google credential without creating another user", async () => {
+  const { calls, auth, operations } = createHarness();
+  auth.currentUser = { uid: "existing-user" };
+  const googleCredential = { providerId: "google.com" };
+  const result = await operations.linkPendingGoogleAccount(googleCredential);
+  assert.equal(result.user.uid, "existing-user");
+  assert.deepEqual(calls, [["linkGoogle", auth.currentUser, googleCredential]]);
+  assert.equal(calls.some(([name]) => name === "register"), false);
+});
+
+test("Google accounts can add password sign-in without creating another user", async () => {
+  const { calls, auth, operations } = createHarness();
+  auth.currentUser = { uid: "google-user", email: "ada@example.com" };
+  const result = await operations.linkEmailPassword("strong-password");
+  assert.equal(result.user.uid, "google-user");
+  assert.deepEqual(calls, [["linkGoogle", auth.currentUser, {
+    providerId: "password",
+    args: ["ada@example.com", "strong-password"],
+  }]]);
+  assert.equal(calls.some(([name]) => name === "register"), false);
+});
+
+test("password linking requires the currently signed-in account to have an email", async () => {
+  const { auth, operations } = createHarness();
+  auth.currentUser = { uid: "google-user", email: null };
+  await assert.rejects(operations.linkEmailPassword("strong-password"), /email address/i);
 });
 
 test("password reset uses Firebase without exposing account-existence decisions", async () => {

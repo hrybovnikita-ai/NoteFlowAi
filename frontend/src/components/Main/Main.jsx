@@ -1,5 +1,7 @@
+import { PlanButton } from "../../billing/Billing";
 import Form from "../Form/Form";
 import FeatureCard from "../FeatureCard/FeatureCard";
+import { pricingPlans } from "../../billing/plans";
 import "./Main.css";
 
 const features = [
@@ -12,12 +14,6 @@ const testimonials = [
   { initials: "MC", name: "Maya Chen", role: "Designer & idea collector", quote: "I used to lose little ideas in a dozen different places. Now they finally have a home." },
   { initials: "JL", name: "Jordan Lee", role: "Student & planner", quote: "It feels easier to start when everything is calm, clear, and right where I need it." },
   { initials: "AR", name: "Alex Rivera", role: "Independent creator", quote: "My notes are turning into real next steps. That small change makes a big difference." },
-];
-
-const plans = [
-  { name: "Free", price: "$0", description: "A gentle place to get started.", features: ["Capture everyday ideas", "Keep notes in one space", "Try the quick-note demo"], featured: false },
-  { name: "Plus", price: "$6", description: "More room for your best thinking.", features: ["Everything in Free", "Organize bigger projects", "Build a daily note habit"], featured: true },
-  { name: "Team", price: "$12", description: "A shared space to think together.", features: ["Everything in Plus", "Bring ideas together", "Make plans as a team"], featured: false },
 ];
 
 export default function Main() {
@@ -92,22 +88,20 @@ export default function Main() {
           <p>Start small and find the plan that fits the way you capture ideas.</p>
         </div>
         <div className="pricing-grid">
-          {plans.map((plan) => (
-            <article className={`pricing-card${plan.featured ? " pricing-card-featured" : ""}`} key={plan.name}>
-              {plan.featured && <span className="pricing-badge">A little extra room</span>}
+          {pricingPlans.map((plan) => (
+            <article className={`pricing-card${plan.featured ? " pricing-card-featured" : ""}`} key={plan.id}>
+              {plan.featured && <span className="pricing-badge">Recommended</span>}
               <span className="pricing-plan">{plan.name}</span>
               <p className="pricing-description">{plan.description}</p>
               <p className="pricing-price">{plan.price}<span> / month</span></p>
               <ul>
                 {plan.features.map((feature) => <li key={feature}><span aria-hidden="true">✓</span>{feature}</li>)}
               </ul>
-              <a className={plan.featured ? "main-button" : "pricing-link"} href="#playground">
-                {plan.name === "Free" ? "Try it out" : "Get started"} <span aria-hidden="true">→</span>
-              </a>
+              <PlanButton plan={plan.id} featured={plan.featured} />
             </article>
           ))}
         </div>
-        <p className="pricing-note">Example plans for this demo. No payment is collected.</p>
+        <p className="pricing-note">Monthly plans in USD. Secure payments powered by Stripe. Cancel through your billing settings.</p>
       </section>
 
       <section className="main-section contact-section" id="contact" aria-labelledby="contact-title">

@@ -1,4 +1,40 @@
 const schema = `
+  CREATE TABLE IF NOT EXISTS billing_accounts (
+    firebase_uid TEXT PRIMARY KEY,
+    customer_id TEXT UNIQUE,
+    subscription_id TEXT UNIQUE,
+    plan TEXT NOT NULL DEFAULT 'free',
+    status TEXT NOT NULL DEFAULT 'free',
+    period_start INTEGER,
+    period_end INTEGER,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    synced_at TEXT,
+    checkout_id TEXT,
+    checkout_plan TEXT,
+    checkout_key TEXT,
+    checkout_started INTEGER,
+    lock_owner TEXT,
+    lock_until INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS billing_events (id TEXT PRIMARY KEY, processed_at TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS ai_usage_daily (
+    firebase_uid TEXT NOT NULL,
+    usage_date TEXT NOT NULL,
+    request_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (firebase_uid, usage_date)
+  );
+  CREATE TABLE IF NOT EXISTS ai_usage_requests (
+    firebase_uid TEXT NOT NULL,
+    usage_date TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (firebase_uid, usage_date, request_id)
+  );
+  CREATE TABLE IF NOT EXISTS ai_usage_global_daily (
+    usage_date TEXT PRIMARY KEY,
+    request_count INTEGER NOT NULL DEFAULT 0
+  );
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY,
     firebase_uid TEXT NOT NULL UNIQUE,
@@ -43,6 +79,33 @@ const schema = `
     PRIMARY KEY (note_id, tag_id)
   );
 
+  CREATE TABLE IF NOT EXISTS chat_conversations (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL DEFAULT 'New chat',
+    message_count INTEGER NOT NULL DEFAULT 0,
+    active_turn_id TEXT,
+    lock_until INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  );
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,
+    conversation_id TEXT NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    turn_id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK (status IN ('complete', 'streaming', 'failed')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    UNIQUE (conversation_id, seq)
+  );
+  CREATE INDEX IF NOT EXISTS idx_chat_conversations_user_updated
+    ON chat_conversations(user_id, updated_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_seq
+    ON chat_messages(conversation_id, seq);
+
   CREATE INDEX IF NOT EXISTS idx_notes_user_updated ON notes(user_id, updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_notes_user_favorite ON notes(user_id, is_favorite);
   CREATE INDEX IF NOT EXISTS idx_notes_user_archived ON notes(user_id, is_archived);
@@ -76,12 +139,12 @@ const schema = `
 
 function migrate(db) {
   const currentVersion = db.pragma("user_version", { simple: true });
-  if (currentVersion > 1) {
+  if (currentVersion > 4) {
     throw new Error(`Database schema version ${currentVersion} is newer than this API supports.`);
   }
   db.transaction(() => {
     db.exec(schema);
-    if (currentVersion < 1) db.pragma("user_version = 1");
+    if (currentVersion < 4) db.pragma("user_version = 4");
   })();
 }
 

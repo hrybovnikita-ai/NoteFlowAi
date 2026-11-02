@@ -1,3 +1,6 @@
+import { BillingSettings } from "../../billing/Billing";
+import { getFirebaseAuthMessage } from "../../auth/firebaseAuthErrors";
+import { useAuth } from "../../auth/useAuth";
 import { useEffect, useMemo, useState } from "react";
 import {
   Link,
@@ -19,6 +22,8 @@ const navigation = [
   { to: "/dashboard/collections", label: "Collections", icon: "▣" },
   { to: "/dashboard/tags", label: "Tags", icon: "⌗" },
   { to: "/dashboard/search", label: "AI Search", icon: "⌕" },
+  { to: "/chat", label: "Chat", icon: "chat" },
+  { to: "/dashboard/pricing", label: "Pricing", icon: "$" },
   { to: "/dashboard/settings", label: "Settings", icon: "⚙" },
 ];
 
@@ -464,6 +469,13 @@ function NoteEditorPage() {
 
 function SettingsPage({ session, onLogout, logoutError }) {
   const { notes, replaceNotes } = useOutletContext();
+  const { user, linkEmailPassword } = useAuth();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [linkSuccess, setLinkSuccess] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const hasPasswordProvider = user?.providerData?.some(({ providerId }) => providerId === "password");
 
   function clearNotes() {
     if (window.confirm("Delete all notes saved to this account?")) replaceNotes([]);
@@ -471,6 +483,27 @@ function SettingsPage({ session, onLogout, logoutError }) {
 
   async function handleLogout() {
     await onLogout();
+  }
+
+  async function handlePasswordLink(event) {
+    event.preventDefault();
+    setLinkError("");
+    setLinkSuccess("");
+    if (password !== confirmPassword) {
+      setLinkError("The passwords do not match.");
+      return;
+    }
+    setLinkBusy(true);
+    try {
+      await linkEmailPassword(password);
+      setPassword("");
+      setConfirmPassword("");
+      setLinkSuccess("Password sign-in is now linked to this account.");
+    } catch (error) {
+      setLinkError(getFirebaseAuthMessage(error, "link"));
+    } finally {
+      setLinkBusy(false);
+    }
   }
 
   return (
@@ -486,6 +519,23 @@ function SettingsPage({ session, onLogout, logoutError }) {
         {logoutError && <p className="dashboard-form-error" role="alert">{logoutError}</p>}
         <button className="dashboard-secondary-button" type="button" onClick={handleLogout}>Log out</button>
       </section>
+      {user && !hasPasswordProvider && (
+        <section className="dashboard-settings-card">
+          <span className="dashboard-eyebrow">SIGN-IN METHODS</span>
+          <h2>Add email and password sign-in</h2>
+          <p>Link a password to {user.email || "this account"} so you can use either Google or email/password without creating a second account.</p>
+          <form className="dashboard-editor-form" onSubmit={handlePasswordLink}>
+            <label htmlFor="link-password">Password</label>
+            <input id="link-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} />
+            <label htmlFor="link-password-confirm">Confirm password</label>
+            <input id="link-password-confirm" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            {linkError && <p className="dashboard-form-error" role="alert">{linkError}</p>}
+            {linkSuccess && <p className="dashboard-search-status" role="status">{linkSuccess}</p>}
+            <button className="dashboard-primary-button" type="submit" disabled={linkBusy}>{linkBusy ? "Linking…" : "Add password sign-in"}</button>
+          </form>
+        </section>
+      )}
+      <BillingSettings />
       <section className="dashboard-settings-card dashboard-danger-zone">
         <span className="dashboard-eyebrow">LOCAL PROTOTYPE DATA</span>
         <h2>Clear your account notes</h2>
@@ -618,15 +668,17 @@ export default function DashboardLayout({ session, onLogout, logoutError }) {
   };
 
   return (
-    <div className="dashboard-shell">
+    <div className={`dashboard-shell${location.pathname === "/chat" ? " is-chat" : ""}`}>
       {mobileNavOpen && <button className="dashboard-sidebar-backdrop" type="button" aria-label="Close navigation" onClick={() => setMobileNavOpen(false)} />}
       <aside className={`dashboard-sidebar${mobileNavOpen ? " is-open" : ""}`}>
-        <Link className="dashboard-brand" to="/dashboard"><span className="dashboard-brand-mark">✦</span>NoteFlow<span>AI</span></Link>
+        <Link className="dashboard-brand" to="/dashboard"><img className="dashboard-brand-logo" src="/favicon.png" alt="" /><span className="dashboard-brand-name">NoteFlow<span>AI</span></span></Link>
         <span className="dashboard-sidebar-label">WORKSPACE</span>
         <nav className="dashboard-sidebar-nav" aria-label="Dashboard navigation">
           {navigation.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} title={item.label} aria-label={item.label} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `dashboard-nav-link${isActive ? " is-active" : ""}`}>
-              <span className="dashboard-nav-icon" aria-hidden="true">{item.icon}</span>{item.label}
+              <span className="dashboard-nav-icon" aria-hidden="true">{item.icon === "chat"
+                ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6a7.5 7.5 0 1 1 17-3.5Z" /><path d="M8 11h8M8 14.5h5" /></svg>
+                : item.icon}</span>{item.label}
               {item.label === "All Notes" && <span className="dashboard-nav-count">{notes.length}</span>}
             </NavLink>
           ))}

@@ -2,7 +2,7 @@ const express = require("express");
 const { rateLimit } = require("express-rate-limit");
 const { createAiController } = require("../controllers/aiController");
 
-function createAiRouter({ db, aiService }) {
+function createAiRouter({ db, aiService, usageService }) {
   const router = express.Router();
   router.use(rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -11,7 +11,14 @@ function createAiRouter({ db, aiService }) {
     legacyHeaders: false,
     skip: () => process.env.NODE_ENV === "test",
   }));
-  router.post("/:action", createAiController({ db, aiService }));
+  router.get("/usage", async (req, res, next) => {
+    try {
+      res.json({ usage: await usageService.getStatus(req.user.firebaseUid) });
+    } catch (error) {
+      next(error);
+    }
+  });
+  router.post("/:action", createAiController({ db, aiService, usageService }));
   return router;
 }
 

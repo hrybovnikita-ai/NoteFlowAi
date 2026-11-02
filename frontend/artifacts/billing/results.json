@@ -1,0 +1,164 @@
+[
+  {
+    "flow": "plus → register → checkout",
+    "passed": true
+  },
+  {
+    "flow": "team → login → checkout",
+    "passed": true
+  },
+  {
+    "width": 320,
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "path": "/checkout?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "path": "/checkout/cancel?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "path": "/checkout/success",
+    "overflow": false
+  },
+  {
+    "width": 320,
+    "path": "/dashboard/settings",
+    "overflow": false
+  },
+  {
+    "width": 375,
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "width": 375,
+    "path": "/checkout?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 375,
+    "path": "/checkout/cancel?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 375,
+    "path": "/checkout/success",
+    "overflow": false
+  },
+  {
+    "width": 375,
+    "path": "/dashboard/settings",
+    "overflow": false
+  },
+  {
+    "width": 768,
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "width": 768,
+    "path": "/checkout?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 768,
+    "path": "/checkout/cancel?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 768,
+    "path": "/checkout/success",
+    "overflow": false
+  },
+  {
+    "width": 768,
+    "path": "/dashboard/settings",
+    "overflow": false
+  },
+  {
+    "width": 1024,
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "width": 1024,
+    "path": "/checkout?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 1024,
+    "path": "/checkout/cancel?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 1024,
+    "path": "/checkout/success",
+    "overflow": false
+  },
+  {
+    "width": 1024,
+    "path": "/dashboard/settings",
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "path": "/checkout?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "path": "/checkout/cancel?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "path": "/checkout/success",
+    "overflow": false
+  },
+  {
+    "width": 1440,
+    "path": "/dashboard/settings",
+    "overflow": false
+  },
+  {
+    "width": 2560,
+    "path": "/",
+    "overflow": false
+  },
+  {
+    "width": 2560,
+    "path": "/checkout?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 2560,
+    "path": "/checkout/cancel?plan=plus",
+    "overflow": false
+  },
+  {
+    "width": 2560,
+    "path": "/checkout/success",
+    "overflow": false
+  },
+  {
+    "width": 2560,
+    "path": "/dashboard/settings",
+    "overflow": false
+  },
+  {
+    "cancellationRetry": true,
+    "successUrlDoesNotGrantAccess": true
+  }
+]

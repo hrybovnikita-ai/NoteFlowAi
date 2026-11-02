@@ -1,11 +1,14 @@
 const { getNote } = require("../services/noteService");
+const { createBillingStore } = require("../database/billingStore");
+const { effectivePlan } = require("../services/aiUsageService");
 const { HttpError } = require("../utils/httpError");
 const { requireId, requireObject, requireString } = require("../utils/validation");
+const { randomUUID } = require("node:crypto");
 
 const ALLOWED_FIELDS = new Set(["noteId", "title", "content", "question"]);
 const ACTIONS = new Set(["summarize", "improve", "title", "tags", "ask"]);
 
-function parseAiInput(body, action, db, userId) {
+async function parseAiInput(body, action, db, userId) {
   requireObject(body);
   for (const key of Object.keys(body)) {
     if (!ALLOWED_FIELDS.has(key)) {
@@ -16,7 +19,7 @@ function parseAiInput(body, action, db, userId) {
   let savedNote;
   if (body.noteId !== undefined) {
     const noteId = requireId(body.noteId);
-    savedNote = getNote(db, userId, noteId);
+    savedNote = await getNote(db, userId, noteId);
     if (!savedNote) throw new HttpError(404, "Note not found.", "NOT_FOUND");
   }
 
@@ -44,12 +47,25 @@ function parseAiInput(body, action, db, userId) {
   return { title, content, question };
 }
 
-function createAiController({ db, aiService }) {
+function createAiController({ db, aiService, usageService }) {
+  const billing = createBillingStore(db);
   return async function handleAiRequest(req, res, next) {
     try {
       const action = req.params.action;
       if (!ACTIONS.has(action)) throw new HttpError(404, "AI action not found.", "NOT_FOUND");
-      const input = parseAiInput(req.body, action, db, req.user.id);
+      const input = await parseAiInput(req.body, action, db, req.user.id);
+      if (action === "summarize") {
+        const account = await billing.ensure(req.user.firebaseUid);
+        const plan = effectivePlan(account, Date.now());
+        if (plan === "free") {
+          throw new HttpError(403, "AI summaries are available on Plus and Pro plans.", "FEATURE_REQUIRES_PAID_PLAN", {
+            feature: "summaries",
+            requiredPlan: "plus",
+          });
+        }
+      }
+      const requestId = req.get("x-ai-request-id") || randomUUID();
+      await usageService.reserve(req.user.firebaseUid, requestId, action);
       const result = await aiService.generate(action, input);
       res.json(result);
     } catch (error) {

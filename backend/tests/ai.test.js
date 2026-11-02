@@ -4,6 +4,7 @@ const request = require("supertest");
 const { createApp } = require("../src/app");
 const { createDatabase } = require("../src/database/connection");
 const { createGeminiService, mapGeminiError } = require("../src/services/geminiService");
+const { HttpError } = require("../src/utils/httpError");
 
 process.env.NODE_ENV = "test";
 
@@ -12,8 +13,12 @@ const claims = {
   bob: { uid: "ai-bob", email: "bob@example.test", name: "Bob", picture: "" },
 };
 
-function createTestApi(aiService) {
+function createTestApi(aiService, plan = "plus") {
   const db = createDatabase(":memory:");
+  if (plan !== "free") {
+    db.prepare("INSERT INTO billing_accounts (firebase_uid, plan, status, period_end) VALUES (?, ?, 'active', ?)")
+      .run("ai-alice", plan, Math.floor(Date.now() / 1000) + 86400);
+  }
   const app = createApp({
     db,
     aiService,
@@ -66,6 +71,33 @@ test("AI actions return consistent JSON results from the service", async (t) => 
   }
   assert.equal(calls.length, 5);
   assert.equal(calls[4].input.question, "What is this about?");
+});
+
+test("Free accounts cannot call paid AI summaries", async t => {
+  const { app, db } = createTestApi({ generate: async () => ({ result: "not generated" }) }, "free");
+  t.after(() => db.close());
+  const response = await request(app).post("/api/ai/summarize").set(auth()).send({ content: "A private note." }).expect(403);
+  assert.equal(response.body.error.code, "FEATURE_REQUIRES_PAID_PLAN");
+});
+
+test("AI failures and retries consume quota without charging a duplicate request ID twice", async t => {
+  let calls = 0;
+  const { app, db } = createTestApi({ generate: async () => {
+    calls += 1;
+    throw new HttpError(429, "Gemini rate limit or quota reached. Please try again later.", "GEMINI_QUOTA_EXCEEDED");
+  } });
+  t.after(() => db.close());
+  const requestId = "b9e8a88a-a53b-4382-85a9-cbb9ce08b93e";
+  await request(app).post("/api/ai/improve").set(auth()).set("X-AI-Request-Id", requestId)
+    .send({ content: "A note." }).expect(429);
+  const status = await request(app).get("/api/ai/usage").set(auth()).expect(200);
+  assert.equal(status.body.usage.used, 1);
+  await request(app).post("/api/ai/improve").set(auth()).set("X-AI-Request-Id", requestId)
+    .send({ content: "A note." }).expect(409);
+  assert.equal(calls, 1);
+  await request(app).post("/api/ai/improve").set(auth()).set("X-AI-Request-Id", "a52b8ed4-1760-4bdb-b889-67b3a617965a")
+    .send({ content: "A note." }).expect(429);
+  assert.equal((await request(app).get("/api/ai/usage").set(auth())).body.usage.used, 2);
 });
 
 test("AI requests reject malformed input and unsupported fields", async (t) => {
@@ -147,6 +179,7 @@ test("Gemini SDK is called with the configured model and handles tag JSON", asyn
     .expect(200);
   assert.deepEqual(response.body, { result: ["research", "planning", "ideas"] });
   assert.equal(received.model, "test-model");
+  assert.equal(received.config.maxOutputTokens, 2048);
   assert.equal(received.config.responseMimeType, "application/json");
 });
 

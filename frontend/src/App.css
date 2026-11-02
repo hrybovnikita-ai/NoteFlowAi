@@ -12,7 +12,8 @@
   gap: 1.5rem;
   padding-block: 1.25rem;
 }
-.logo { font-size: clamp(1.125rem, 1.5vw, 1.375rem); font-weight: 700; color: var(--text-h); text-decoration: none; }
+.logo { display: inline-flex; align-items: center; gap: .55rem; font-size: clamp(1.125rem, 1.5vw, 1.375rem); font-weight: 700; color: var(--text-h); text-decoration: none; }
+.logo img { width: 2rem; height: 2rem; border-radius: .55rem; object-fit: cover; }
 .nav-links { display: flex; justify-content: center; flex-wrap: wrap; gap: clamp(1rem, 2vw, 2rem); list-style: none; margin: 0; padding: 0; }
 .nav-links a { display: inline-flex; align-items: center; min-height: 2.75rem; text-decoration: none; transition: color .2s; }
 .nav-links a:hover { color: var(--accent); }
@@ -71,7 +72,8 @@
   cursor: pointer;
 }
 .auth-dialog-close:hover { background: var(--accent-bg); color: var(--text-h); }
-.auth-dialog-brand { color: var(--accent); font-size: .875rem; font-weight: 700; }
+.auth-dialog-brand { display: inline-flex; align-items: center; gap: .45rem; color: var(--accent); font-size: .875rem; font-weight: 700; }
+.auth-dialog-brand img { width: 1.65rem; height: 1.65rem; border-radius: .4rem; object-fit: cover; }
 .auth-dialog h2 { margin-block: .75rem; font-size: clamp(1.5rem, 5vw, 2rem); }
 .auth-dialog > p { margin-bottom: 1rem; }
 .auth-form { display: grid; gap: .625rem; }

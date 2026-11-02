@@ -4,6 +4,7 @@ const { HttpError } = require("../utils/httpError");
 const SORT_COLUMNS = new Set(["created_at", "updated_at", "title"]);
 
 function getNote(db, userId, id) {
+  if (db.kind === "firestore") return db.getNote(userId, id);
   const row = db.prepare(`
     SELECT n.id, n.title, n.content, n.is_favorite, n.is_archived,
       n.created_at, n.updated_at, c.name AS collection
@@ -34,6 +35,7 @@ function getNote(db, userId, id) {
 }
 
 function listNotes(db, userId, { page, limit, sort, order, archived, favorite }) {
+  if (db.kind === "firestore") return db.listNotes(userId, { page, limit, sort, order, archived, favorite });
   if (!SORT_COLUMNS.has(sort)) throw new HttpError(400, "Unsupported sort field.", "INVALID_QUERY");
   const conditions = ["n.user_id = ?", "n.is_archived = ?"];
   const values = [userId, Number(archived)];
@@ -75,10 +77,20 @@ function replaceTags(db, userId, noteId, names) {
   }
 }
 
-function createNote(db, userId, input) {
+function createNote(db, userId, input, options = {}) {
+  if (db.kind === "firestore") return db.createNote(userId, input, options);
   const id = randomUUID();
   const now = new Date().toISOString();
   const create = db.transaction(() => {
+    if (Number.isSafeInteger(options.maxNotes)) {
+      const count = db.prepare("SELECT COUNT(*) AS count FROM notes WHERE user_id = ?").get(userId).count;
+      if (count >= options.maxNotes) {
+        throw new HttpError(403, `Your plan allows up to ${options.maxNotes} notes. Upgrade to save more.`, "NOTE_LIMIT_REACHED", {
+          limit: options.maxNotes,
+          used: count,
+        });
+      }
+    }
     const categoryId = upsertCategory(db, userId, input.collection);
     db.prepare(`
       INSERT INTO notes (id, user_id, category_id, title, content, is_favorite, created_at, updated_at)
@@ -91,6 +103,7 @@ function createNote(db, userId, input) {
 }
 
 function updateNote(db, userId, id, changes) {
+  if (db.kind === "firestore") return db.updateNote(userId, id, changes);
   const existing = getNote(db, userId, id);
   if (!existing) return null;
   const next = { ...existing, ...changes };
@@ -119,10 +132,12 @@ function updateNote(db, userId, id, changes) {
 }
 
 function deleteNote(db, userId, id) {
+  if (db.kind === "firestore") return db.deleteNote(userId, id);
   return db.prepare("DELETE FROM notes WHERE id = ? AND user_id = ?").run(id, userId).changes > 0;
 }
 
 function searchNotes(db, userId, query, { page, limit }) {
+  if (db.kind === "firestore") return db.searchNotes(userId, query, { page, limit });
   const tokens = query.match(/[\p{L}\p{N}_]+/gu) || [];
   if (!tokens.length) return { items: [], pagination: { page, limit, total: 0, pages: 0 } };
   const match = tokens.map((token) => `"${token.replace(/"/g, '""')}"*`).join(" OR ");

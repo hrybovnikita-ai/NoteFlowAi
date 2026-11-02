@@ -23,7 +23,7 @@ try {
       font: getComputedStyle(document.body).fontFamily,
       stylesheets: document.querySelectorAll('style[data-vite-dev-id]').length,
     }));
-    if (theme.background !== 'rgb(9, 9, 15)' || theme.card !== 'rgb(29, 25, 43)' || theme.stylesheets !== 6 || !theme.font.includes('system-ui')) {
+    if (theme.background !== 'rgb(9, 7, 15)' || theme.card !== 'rgb(27, 20, 40)' || theme.stylesheets < 7 || !theme.font.includes('system-ui')) {
       throw new Error(`Theme or CSS loading regression: ${JSON.stringify(theme)}`);
     }
     const layout = await page.evaluate(() => {
@@ -38,6 +38,7 @@ try {
     });
     const expectedColumns = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
     if (layout.overflow.length || layout.overlap || !layout.aligned || layout.columns !== expectedColumns) throw new Error(JSON.stringify({ width, ...layout }));
+    if (await page.locator('.nav-menu-toggle').isVisible()) await page.locator('.nav-menu-toggle').click();
     await page.locator('.nav-links a[href="#features"]').click();
     if (!page.url().endsWith('#features')) throw new Error('Feature navigation failed');
     await page.locator('.main-actions a[href="#playground"]').click();

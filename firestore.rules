@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    // All writes pass through the authenticated API's validation and transactions.
+    match /users/{uid} {
+      allow read: if owner(uid);
+      allow write: if false;
+      match /notes/{id} { allow read: if owner(uid); allow write: if false; }
+      match /settings/{id} { allow read: if owner(uid); allow write: if false; }
+      match /metadata/{id} { allow read, write: if false; }
+      match /aiUsage/{day} {
+        allow read, write: if false;
+        match /requests/{requestId} { allow read, write: if false; }
+      }
+      match /categories/{id} { allow read: if owner(uid); allow write: if false; }
+      match /tags/{id} { allow read: if owner(uid); allow write: if false; }
+      match /conversations/{conversationId} {
+        allow read: if owner(uid);
+        allow write: if false;
+        match /messages/{messageId} {
+          allow read: if owner(uid);
+          allow write: if false;
+        }
+      }
+    }
+    // Billing contains internal leases, idempotency keys and customer identifiers.
+    // The API returns only the authenticated user's public subscription summary.
+    match /billingAccounts/{uid} { allow read, write: if false; }
+    match /billingEvents/{id} { allow read, write: if false; }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

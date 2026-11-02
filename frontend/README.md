@@ -47,9 +47,11 @@ search, and settings routes. Firebase Authentication protects dashboard routes.
 The dashboard obtains a Firebase ID token and sends it to the API as a Bearer
 token; it does not use a demo session or browser storage as authentication.
 
-Notes persist in the backend SQLite database and are scoped to the verified
-Firebase user. Search uses SQLite FTS5 keyword search; semantic search is not
-connected. Archived notes are excluded from the default notes list.
+Notes, profiles, settings, categories, and tags persist in Cloud Firestore,
+scoped to the verified Firebase UID. Billing state is stored server-side and
+cannot be read by browser clients. Search uses per-user keyword matching in
+Firestore; semantic search is not connected. Archived notes are excluded from
+the default notes list.
 The note editor offers Gemini summarize, improve, title, tag, and question
 actions. Suggestions are previewed first and only applied to the editor when
 you choose to apply them.
@@ -68,14 +70,29 @@ environment file.
 ## Firebase Google sign-in
 
 The Firebase web app configuration is read from the existing
-`frontend/.env.local`; do not commit that local file. `frontend/firebase.js`
-initializes Firebase Auth and the landing-page Google button uses Firebase's
-popup flow. Firebase's browser-local auth persistence restores signed-in users
-after a refresh. No demo or browser-stored flag is used as proof of
-authentication.
+`frontend/.env.local`; this app requires project ID `noteflowai-73991`. Set
+`VITE_FIREBASE_API_KEY`,
+`VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and
+`VITE_FIREBASE_APP_ID` (storage bucket and sender ID are optional for Auth).
+Do not commit that local file. `frontend/firebase.js` initializes Firebase
+Auth; email/password, Google popup sign-in with redirect fallback, password
+reset, and browser-local session persistence are handled by Firebase. Login
+and registration land on `/dashboard`; selected pricing intent remains saved
+until the user explicitly continues to checkout. Google accounts can add
+password sign-in from Dashboard → Settings, linking to the same Firebase UID.
+The API independently verifies each ID token using server-only Firebase Admin
+credentials. Startup rejects a different project ID or an already-initialized
+Firebase app for another project. The optional
+`VITE_FIREBASE_AUTH_EMULATOR_HOST` setting is for local emulator testing only.
 
-Add the deployed website hostname to Firebase Console → Authentication →
-Settings → Authorized domains. Enable Email/Password and Google providers.
+Keep `VITE_FIREBASE_AUTH_DOMAIN=noteflowai-73991.firebaseapp.com` for local
+development unless a custom Firebase Auth domain has been fully configured.
+For a custom production domain, point this setting at the Firebase-supported
+auth handler domain, add the app hostname under Firebase Console →
+Authentication → Settings → Authorized domains, and update the Google OAuth
+authorized redirect URI in the provider configuration. Keep `localhost`
+authorized for local use.
+Enable Email/Password and Google providers.
 Enable email enumeration protection to keep password-recovery responses
 indistinguishable for existing and unknown addresses. Set Firebase Admin
 credentials for the backend separately; do not copy Admin credentials into this
@@ -84,3 +101,8 @@ frontend. The Vite dev and preview servers set
 configure the same header on the production web server if its policy requires
 Cross-Origin-Opener-Policy. Real Google account selection cannot be automated
 without an interactive user account.
+
+Deploy the Firestore rules and indexes from the repository root with
+`firebase deploy --only firestore:rules,firestore:indexes`. Authenticated
+clients may read only their own profile and private subcollections; Firestore
+writes and billing documents are restricted to the trusted API/Admin SDK.

@@ -5,7 +5,11 @@ const { createDatabase } = require("./src/database/connection");
 
 const port = Number(process.env.PORT) || 3000;
 const databasePath = process.env.DATABASE_PATH || "./data/noteflow.sqlite";
-const db = createDatabase(databasePath);
+const driver = process.env.STORAGE_DRIVER || 'firestore';
+if (!['firestore', 'sqlite'].includes(driver)) throw new Error('STORAGE_DRIVER must be firestore or sqlite');
+const db = driver === 'firestore'
+  ? require('./src/database/firestore').createFirestoreDatabase(require('firebase-admin/firestore').getFirestore(require('./src/services/firebaseAdmin').getFirebaseAdminApp(), process.env.FIRESTORE_DATABASE_ID || '(default)'))
+  : createDatabase(databasePath);
 const app = createApp({ db });
 
 const server = app.listen(port, () => {
@@ -13,8 +17,8 @@ const server = app.listen(port, () => {
 });
 
 function shutdown() {
-  server.close(() => {
-    db.close();
+  server.close(async () => {
+    await db.close();
     process.exit(0);
   });
 }

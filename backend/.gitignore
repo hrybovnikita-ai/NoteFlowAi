@@ -12,3 +12,4 @@ data/
 **/.venv/
 **/__pycache__/
 **/dist/
+firebase-service-account.json
