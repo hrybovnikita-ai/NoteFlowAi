@@ -43,7 +43,8 @@ beforeEach(() => {
     chatAiService: mockChatAi,
     verifyIdToken: async (token) => {
       if (token === "expired") throw Object.assign(new Error("token expired"), { code: "auth/id-token-expired" });
-      if (!users[token]) throw new Error("invalid token");
+      if (token === "verifier-unavailable") throw Object.assign(new Error("verifier unavailable"), { code: "auth/internal-error" });
+      if (!users[token]) throw Object.assign(new Error("invalid token"), { code: "auth/invalid-id-token" });
       return users[token];
     },
   });
@@ -62,6 +63,11 @@ test("protected API rejects missing and invalid Firebase ID tokens", async () =>
   assert.equal(response.body.error.code, "INVALID_TOKEN");
   await request(app).get("/api/notes").set(auth("expired")).expect(401)
     .expect(result => assert.equal(result.body.error.code, "INVALID_TOKEN"));
+});
+
+test("Firebase verifier failures are not reported as invalid user tokens", async () => {
+  const response = await request(app).get("/api/notes").set(auth("verifier-unavailable")).expect(503);
+  assert.equal(response.body.error.code, "AUTH_VERIFICATION_FAILED");
 });
 
 test("auth profile and sync use only verified token identity", async () => {

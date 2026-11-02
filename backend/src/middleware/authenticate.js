@@ -1,5 +1,15 @@
 const { HttpError } = require("../utils/httpError");
 
+const INVALID_FIREBASE_TOKEN_CODES = new Set([
+  "auth/argument-error",
+  "auth/invalid-argument",
+  "auth/invalid-id-token",
+  "auth/id-token-expired",
+  "auth/id-token-revoked",
+  "auth/user-disabled",
+  "auth/user-not-found",
+]);
+
 function createAuthenticate({ db, verifyIdToken }) {
   return async function authenticate(req, res, next) {
     const authorization = req.get("authorization") || "";
@@ -52,7 +62,10 @@ function createAuthenticate({ db, verifyIdToken }) {
       }
       if (error instanceof HttpError) return next(error);
       if (verified) return next(new HttpError(503, 'Your account could not be synchronized. Please retry.', 'PROFILE_SYNC_FAILED'));
-      return next(new HttpError(401, "The Firebase ID token is invalid or expired.", "INVALID_TOKEN"));
+      if (INVALID_FIREBASE_TOKEN_CODES.has(error.code)) {
+        return next(new HttpError(401, "The Firebase ID token is invalid or expired.", "INVALID_TOKEN"));
+      }
+      return next(new HttpError(503, "Firebase could not verify the sign-in token. Please retry.", "AUTH_VERIFICATION_FAILED"));
     }
   };
 }

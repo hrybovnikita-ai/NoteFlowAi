@@ -17,6 +17,9 @@ import DashboardLayout, {
   TagsPage,
 } from "./components/Dashboard/Dashboard";
 const ChatPage = lazy(() => import("./chat/Chat"));
+const KnowledgeGraphPage = lazy(() => import("./features/KnowledgeGraph"));
+const DocumentsPage = lazy(() => import("./features/Documents"));
+const TasksPage = lazy(() => import("./features/Tasks"));
 
 function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, autoOpenAuth = false, initialMode = "login", firebaseError = "", authNotice = "" }) {
   const authDialogRef = useRef(null);
@@ -386,6 +389,9 @@ export default function App() {
         <Route path="collections" element={<CollectionsPage />} />
         <Route path="tags" element={<TagsPage />} />
         <Route path="search" element={<SearchPage />} />
+        <Route path="knowledge-graph" element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading knowledge graph…</main>}><KnowledgeGraphPage /></Suspense>} />
+        <Route path="documents" element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading documents…</main>}><DocumentsPage /></Suspense>} />
+        <Route path="tasks" element={<Suspense fallback={<main className="auth-loading-screen" aria-live="polite"><span className="auth-loading-spinner" />Loading tasks…</main>}><TasksPage /></Suspense>} />
         <Route path="pricing" element={<PricingPage embedded />} />
         <Route path="settings" element={<SettingsPage session={session} onLogout={logout} logoutError={logoutError} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

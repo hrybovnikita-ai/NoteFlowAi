@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, model_validator
 load_dotenv(Path(__file__).resolve().parent.parent / "backend" / ".env")
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-flash-lite-latest"
 MAX_CONTEXT_CHARS = 80000
 MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "2048"))
 if not 1 <= MAX_OUTPUT_TOKENS <= 8192:

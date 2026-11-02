@@ -17,7 +17,7 @@ class ChatServiceTests(unittest.IsolatedAsyncioTestCase):
             {
                 "CHAT_SERVICE_TOKEN": TEST_TOKEN,
                 "GEMINI_API_KEY": "test-key",
-                "GEMINI_MODEL": "gemini-2.5-flash",
+                "GEMINI_MODEL": "gemini-flash-lite-latest",
             },
             clear=False,
         )
@@ -33,6 +33,10 @@ class ChatServiceTests(unittest.IsolatedAsyncioTestCase):
 
         def gemini_handler(request):
             self.assertEqual(request.headers["x-goog-api-key"], "test-key")
+            self.assertEqual(
+                request.url.path,
+                "/v1beta/models/gemini-flash-lite-latest:streamGenerateContent",
+            )
             self.generation_config = json.loads(request.content)["generationConfig"]
             return httpx.Response(
                 200,

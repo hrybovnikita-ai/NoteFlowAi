@@ -21,7 +21,7 @@ identity, and Cloud Firestore stores private user data by default.
 7. Keep service-account credentials server-side, outside source control. The Firebase web config in the frontend is not an Admin credential.
 8. Deploy `firestore.rules` and `firestore.indexes.json` from the repository root with `firebase deploy --only firestore:rules,firestore:indexes`. The API uses the Admin SDK; client SDK access is limited by the deployed rules.
 9. Set `CORS_ORIGINS` to a comma-separated list of exact frontend origins.
-10. Set `GEMINI_API_KEY` from Google AI Studio and optionally `GEMINI_MODEL` in `backend/.env`. The key stays server-side; `.env` is ignored by Git. The default model is `gemini-2.5-flash`; verify that it is enabled for your key and quota.
+10. Set `GEMINI_API_KEY` from Google AI Studio and optionally `GEMINI_MODEL` in `backend/.env`. The key stays server-side; `.env` is ignored by Git. The default model is `gemini-flash-lite-latest`; verify that it is enabled for your key and quota.
 11. Configure `AI_GLOBAL_DAILY_REQUEST_LIMIT` (default `10000`) as a service-wide daily request ceiling and `GEMINI_MAX_OUTPUT_TOKENS` (default `2048`, maximum `8192`) to bound generated response size.
 12. Run `npm run dev` for local development or `npm start` for production.
 

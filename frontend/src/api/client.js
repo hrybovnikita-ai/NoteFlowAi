@@ -23,6 +23,14 @@ function apiError(error) {
   });
 }
 
+function usesAiRequestId(method, path) {
+  return method === "POST" && (
+    path.startsWith("/ai/")
+    || path === "/documents/ask"
+    || path === "/tasks/suggest-from-note"
+  );
+}
+
 async function request(path, { method = "GET", body, query } = {}) {
   const user = auth?.currentUser;
   if (!user) throw new Error("Sign in to access your notes.");
@@ -36,7 +44,7 @@ async function request(path, { method = "GET", body, query } = {}) {
       data: body,
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(method === "POST" && path.startsWith("/ai/") ? { "X-AI-Request-Id": crypto.randomUUID() } : {}),
+        ...(usesAiRequestId(method, path) ? { "X-AI-Request-Id": crypto.randomUUID() } : {}),
       },
     });
     return response.data;
@@ -250,5 +258,55 @@ export const api = {
     create: (tag) => request("/tags", { method: "POST", body: tag }),
     update: (id, changes) => request(`/tags/${encodeURIComponent(id)}`, { method: "PATCH", body: changes }),
     remove: (id) => request(`/tags/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
+  knowledgeGraph: {
+    get: (query) => request("/knowledge-graph", { query }),
+    rebuild: () => request("/knowledge-graph/rebuild", { method: "POST", body: {} }),
+  },
+  documents: {
+    list: (query) => request("/documents", { query }),
+    remove: (id) => request(`/documents/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    ask: (body) => request("/documents/ask", { method: "POST", body }),
+    upload: async (file) => {
+      const user = auth?.currentUser;
+      if (!user) throw new Error("Sign in to upload documents.");
+      const token = await user.getIdToken();
+      const formData = new FormData();
+      formData.append("file", file);
+      let response = await fetch(`${apiBaseUrl}/documents`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (response.status === 401) {
+        const refreshedToken = await user.getIdToken(true);
+        response = await fetch(`${apiBaseUrl}/documents`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${refreshedToken}` },
+          body: formData,
+        });
+      }
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw Object.assign(new Error(payload?.error?.message || "Document upload failed."), {
+          code: payload?.error?.code,
+          status: response.status,
+        });
+      }
+      return payload;
+    },
+  },
+  tasks: {
+    list: (query) => request("/tasks", { query }),
+    create: (body) => request("/tasks", { method: "POST", body }),
+    update: (id, body) => request(`/tasks/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+    remove: (id) => request(`/tasks/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    suggestFromNote: (body) => request("/tasks/suggest-from-note", { method: "POST", body }),
+  },
+  noteVersions: {
+    list: (noteId) => request(`/notes/${encodeURIComponent(noteId)}/versions`),
+    get: (noteId, versionId) => request(`/notes/${encodeURIComponent(noteId)}/versions/${encodeURIComponent(versionId)}`),
+    compare: (noteId, leftId, rightId) => request(`/notes/${encodeURIComponent(noteId)}/versions/compare/${encodeURIComponent(leftId)}/${encodeURIComponent(rightId)}`),
+    restore: (noteId, versionId) => request(`/notes/${encodeURIComponent(noteId)}/versions/${encodeURIComponent(versionId)}/restore`, { method: "POST", body: {} }),
   },
 };

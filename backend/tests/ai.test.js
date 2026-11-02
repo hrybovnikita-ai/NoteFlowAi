@@ -23,7 +23,7 @@ function createTestApi(aiService, plan = "plus") {
     db,
     aiService,
     verifyIdToken: async (token) => {
-      if (!claims[token]) throw new Error("invalid token");
+      if (!claims[token]) throw Object.assign(new Error("invalid token"), { code: "auth/invalid-id-token" });
       return claims[token];
     },
   });

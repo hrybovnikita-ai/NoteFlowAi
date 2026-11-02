@@ -1,5 +1,6 @@
 const { randomUUID } = require("node:crypto");
 const { HttpError } = require("../utils/httpError");
+const { maybeSaveNoteVersion } = require("../services/noteVersionService");
 
 const COLLECTION_DEFAULT = "#A855F7";
 const DEFAULT_SETTINGS = Object.freeze({ defaultSort: "updated_at", compactNotes: false });
@@ -72,6 +73,7 @@ async function updateNote(db, uid, id, changes) {
   return db.transaction(async client => {
     const existing = await getNote(db, uid, id, client.query.bind(client));
     if (!existing) return null;
+    await maybeSaveNoteVersion(client, uid, existing);
     const next = { ...existing, ...changes };
     const collectionId = Object.hasOwn(changes, "collection")
       ? await upsertCollection(client, uid, changes.collection)
@@ -84,6 +86,18 @@ async function updateNote(db, uid, id, changes) {
     if (Object.hasOwn(changes, "tags")) await replaceTags(client, uid, id, changes.tags);
     return getNote(db, uid, id, client.query.bind(client));
   });
+}
+
+async function getNoteSnapshot(db, uid, id, query = db.query) {
+  return getNote(db, uid, id, query);
+}
+
+async function applyNoteFields(client, uid, id, fields) {
+  await client.query(
+    `UPDATE notes SET title = $1, content = $2, updated_at = now() WHERE id = $3 AND user_id = $4`,
+    [fields.title, fields.content, id, uid],
+  );
+  return getNote({ query: client.query.bind(client) }, uid, id, client.query.bind(client));
 }
 
 function createPostgresData(db) {
@@ -133,6 +147,8 @@ function createPostgresData(db) {
     },
     createNote: (uid, input, options) => createNote(db, uid, input, options),
     updateNote: (uid, id, changes) => updateNote(db, uid, id, changes),
+    getNoteSnapshot: (uid, id) => getNoteSnapshot(db, uid, id),
+    applyNoteFields: (uid, id, fields) => db.transaction(client => applyNoteFields(client, uid, id, fields)),
     async deleteNote(uid, id) {
       return (await db.query("DELETE FROM notes WHERE id = $1 AND user_id = $2", [id, uid])).rowCount > 0;
     },

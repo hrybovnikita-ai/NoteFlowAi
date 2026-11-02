@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require("@google/genai");
 const { HttpError } = require("../utils/httpError");
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
 const MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 2048);
 if (!Number.isSafeInteger(MAX_OUTPUT_TOKENS) || MAX_OUTPUT_TOKENS < 1 || MAX_OUTPUT_TOKENS > 8192) {
   throw new Error("GEMINI_MAX_OUTPUT_TOKENS must be an integer between 1 and 8192.");

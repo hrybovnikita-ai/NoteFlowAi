@@ -16,6 +16,10 @@ const { createChatRouter } = require("./routes/chatRoutes");
 const { HttpError } = require("./utils/httpError");
 const { createBillingService } = require('./services/billingService');
 const { createAiUsageService } = require("./services/aiUsageService");
+const { createKnowledgeGraphRouter } = require("./routes/knowledgeGraphRoutes");
+const { createTaskRouter } = require("./routes/taskRoutes");
+const { createDocumentRouter } = require("./routes/documentRoutes");
+const { createNoteVersionRouter } = require("./routes/noteVersionRoutes");
 
 function createApp({ db, verifyIdToken, aiService, chatAiService, billingProvider }) {
   if (!db) throw new Error("createApp requires a database instance.");
@@ -66,6 +70,12 @@ function createApp({ db, verifyIdToken, aiService, chatAiService, billingProvide
   api.use("/auth", createAuthRouter());
   api.get("/me", (req, res) => res.json({ user: req.user }));
   api.use("/notes", createNoteRouter(db));
+  if (db.kind === "postgres") {
+    api.use("/notes/:noteId/versions", createNoteVersionRouter(db));
+    api.use("/knowledge-graph", createKnowledgeGraphRouter(db));
+    api.use("/tasks", createTaskRouter({ db, usageService: aiUsage }));
+    api.use("/documents", createDocumentRouter({ db, usageService: aiUsage }));
+  }
   api.use("/categories", createTaxonomyRouter(db, "categories"));
   api.use("/tags", createTaxonomyRouter(db, "tags"));
   api.use("/search", createSearchRouter(db));

@@ -135,6 +135,93 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_note_content_search ON notes USING GIN (to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')));
     `,
   },
+  {
+    version: 2,
+    name: "knowledge_graph_documents_tasks_note_versions",
+    sql: `
+      CREATE TABLE IF NOT EXISTS note_embeddings (
+        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        note_id TEXT NOT NULL,
+        vector JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (user_id, note_id),
+        FOREIGN KEY (user_id, note_id) REFERENCES notes(user_id, id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS note_relationships (
+        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        source_note_id TEXT NOT NULL,
+        target_note_id TEXT NOT NULL,
+        similarity REAL NOT NULL CHECK (similarity >= 0 AND similarity <= 1),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (user_id, source_note_id, target_note_id),
+        FOREIGN KEY (user_id, source_note_id) REFERENCES notes(user_id, id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id, target_note_id) REFERENCES notes(user_id, id) ON DELETE CASCADE,
+        CHECK (source_note_id <> target_note_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS user_documents (
+        id UUID PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+        page_count INTEGER NOT NULL DEFAULT 1 CHECK (page_count >= 1),
+        storage_key TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (user_id, id)
+      );
+
+      CREATE TABLE IF NOT EXISTS document_chunks (
+        id UUID PRIMARY KEY,
+        document_id UUID NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
+        page_number INTEGER NOT NULL DEFAULT 1 CHECK (page_number >= 1),
+        content TEXT NOT NULL,
+        vector JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (document_id, chunk_index),
+        FOREIGN KEY (user_id, document_id) REFERENCES user_documents(user_id, id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS tasks (
+        id UUID PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        note_id TEXT,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'done')),
+        priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+        due_date DATE,
+        reminder_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (user_id, id),
+        FOREIGN KEY (user_id, note_id) REFERENCES notes(user_id, id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS note_versions (
+        id UUID PRIMARY KEY,
+        note_id TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(firebase_uid) ON DELETE CASCADE,
+        version_number INTEGER NOT NULL CHECK (version_number > 0),
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        change_summary TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (user_id, note_id, version_number),
+        FOREIGN KEY (user_id, note_id) REFERENCES notes(user_id, id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_note_relationships_user ON note_relationships(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_documents_user_created ON user_documents(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_document_chunks_doc ON document_chunks(user_id, document_id, chunk_index);
+      CREATE INDEX IF NOT EXISTS idx_tasks_user_status ON tasks(user_id, status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_tasks_user_due ON tasks(user_id, due_date);
+      CREATE INDEX IF NOT EXISTS idx_note_versions_note ON note_versions(user_id, note_id, version_number DESC);
+    `,
+  },
 ];
 
 async function migratePostgres(pool) {

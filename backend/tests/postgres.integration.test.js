@@ -24,8 +24,8 @@ test("PostgreSQL migrations, authenticated CRUD, isolation, and usage persistenc
   const app = createApp({
     db,
     verifyIdToken: async token => {
-      if (token === "expired") throw new Error("expired token");
-      if (!tokens[token]) throw new Error("invalid token");
+      if (token === "expired") throw Object.assign(new Error("expired token"), { code: "auth/id-token-expired" });
+      if (!tokens[token]) throw Object.assign(new Error("invalid token"), { code: "auth/invalid-id-token" });
       return tokens[token];
     },
   });

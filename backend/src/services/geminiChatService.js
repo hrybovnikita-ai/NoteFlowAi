@@ -2,7 +2,7 @@ const { GoogleGenAI } = require("@google/genai");
 const { HttpError } = require("../utils/httpError");
 const { mapGeminiError } = require("./geminiService");
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
 const MAX_OUTPUT_TOKENS = Number(process.env.GEMINI_MAX_OUTPUT_TOKENS || 2048);
 const MAX_CONTEXT_CHARACTERS = 28000;
 

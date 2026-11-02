@@ -12,6 +12,7 @@ import {
   useParams,
 } from "react-router-dom";
 import { api } from "../../api/client";
+import NoteHistory from "../../features/NoteHistory";
 import "./Dashboard.css";
 
 const navigation = [
@@ -22,6 +23,9 @@ const navigation = [
   { to: "/dashboard/collections", label: "Collections", icon: "▣" },
   { to: "/dashboard/tags", label: "Tags", icon: "⌗" },
   { to: "/dashboard/search", label: "AI Search", icon: "⌕" },
+  { to: "/dashboard/knowledge-graph", label: "Knowledge Graph", icon: "◉" },
+  { to: "/dashboard/documents", label: "Documents", icon: "▥" },
+  { to: "/dashboard/tasks", label: "Tasks", icon: "☑" },
   { to: "/chat", label: "Chat", icon: "chat" },
   { to: "/dashboard/pricing", label: "Pricing", icon: "$" },
   { to: "/dashboard/settings", label: "Settings", icon: "⚙" },
@@ -463,6 +467,15 @@ function NoteEditorPage() {
         </div>
         <p className="dashboard-prototype-note">Notes are securely saved to your NoteFlow AI account.</p>
       </form>
+      {existingNote && (
+        <NoteHistory
+          noteId={existingNote.id}
+          onRestored={(item) => {
+            setTitle(item.title);
+            setContent(item.content);
+          }}
+        />
+      )}
     </div>
   );
 }
