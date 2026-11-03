@@ -1,5 +1,13 @@
 require("dotenv").config();
 
+const { existsSync } = require("node:fs");
+const credentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+if (credentialsPath && !existsSync(credentialsPath)) {
+  console.error(
+    "Firebase Admin credentials file is missing. Set GOOGLE_APPLICATION_CREDENTIALS to a valid service account JSON path, then restart the API.",
+  );
+}
+
 const { createApp } = require("./src/app");
 const { createDatabase } = require("./src/database/connection");
 

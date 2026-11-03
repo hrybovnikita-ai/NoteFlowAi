@@ -157,14 +157,17 @@ function createChatRouter({ db, aiService, usageService }) {
         return res.end();
       }
 
-      const requestId = req.get("x-ai-request-id") || require("node:crypto").randomUUID();
-      await usageService.reserve(req.user.firebaseUid, requestId, "chat");
-      const context = await store.context(userId, conversationId, input.turnId);
-      const upstream = await aiService.open(context, abortController.signal);
       res.status(200);
       res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
       res.flushHeaders?.();
       sendEvent(res, "start", { turnId: input.turnId });
+
+      const requestId = req.get("x-ai-request-id") || require("node:crypto").randomUUID();
+      const [, context] = await Promise.all([
+        usageService.reserve(req.user.firebaseUid, requestId, "chat"),
+        store.context(userId, conversationId, input.turnId),
+      ]);
+      const upstream = await aiService.open(context, abortController.signal);
       for await (const event of aiService.events(upstream)) {
         content += event.text;
         sendEvent(res, "delta", event);

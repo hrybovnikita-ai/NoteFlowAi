@@ -31,7 +31,7 @@ beforeEach(() => {
     },
   };
   app = createApp({ db, billingProvider: provider, verifyIdToken: async token => {
-    if (token !== 'alice' && token !== 'bob') throw new Error('Invalid token');
+    if (token !== 'alice' && token !== 'bob') throw Object.assign(new Error('Invalid token'), { code: 'auth/invalid-id-token' });
     return { uid: token, email: `${token}@example.test` };
   } });
 });

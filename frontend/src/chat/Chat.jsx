@@ -71,6 +71,27 @@ function formatCountdown(milliseconds) {
   return `${hours}h ${minutes}m ${String(seconds % 60).padStart(2, "0")}s`;
 }
 
+const MAX_CHAT_ATTACHMENTS = 12;
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+
+function formatAttachmentSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function attachmentDisplayName(file) {
+  return file.webkitRelativePath || file.name;
+}
+
+function buildMessageWithAttachments(text, attachments) {
+  const trimmed = text.trim();
+  if (!attachments.length) return trimmed;
+  const names = attachments.map(item => attachmentDisplayName(item.file)).join(", ");
+  const suffix = `[Attached: ${names}]`;
+  return trimmed ? `${trimmed}\n\n${suffix}` : suffix;
+}
+
 export default function ChatPage() {
   const { user } = useAuth();
   const { conversationId: routeConversationId = "" } = useParams();
@@ -88,6 +109,8 @@ export default function ChatPage() {
   const [usageError, setUsageError] = useState("");
   const [clock, setClock] = useState(null);
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentError, setAttachmentError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(() => !window.matchMedia("(max-width: 900px)").matches);
   const [renamingId, setRenamingId] = useState("");
   const [renameDraft, setRenameDraft] = useState("");
@@ -102,11 +125,16 @@ export default function ChatPage() {
   const [messageFeedback, setMessageFeedback] = useState({});
   const [copiedMessageId, setCopiedMessageId] = useState("");
   const controllerRef = useRef(null);
+  const streamDraftRef = useRef({ turnId: "", content: "" });
+  const streamFrameRef = useRef(null);
   const selectedRef = useRef("");
   const loadSequenceRef = useRef(0);
   const skipMessageFetchRef = useRef(false);
   const endRef = useRef(null);
   const messageScrollRef = useRef(null);
+  const imageInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
   const skipAutoScrollRef = useRef(false);
   const lastResetFetchedRef = useRef("");
 
@@ -128,9 +156,11 @@ export default function ChatPage() {
 
   useEffect(() => {
     let active = true;
-    api.chat.conversations()
-      .then(result => {
-        if (active) {
+    Promise.allSettled([api.chat.conversations(), api.ai.usage()])
+      .then(([conversationsResult, usageResult]) => {
+        if (!active) return;
+        if (conversationsResult.status === "fulfilled") {
+          const result = conversationsResult.value;
           const { items } = result;
           setConversations(items);
           setHasMoreConversations(Boolean(result.pagination?.hasMore));
@@ -144,10 +174,15 @@ export default function ChatPage() {
             setSelectedId(selected);
             if (selected !== routeConversationId) navigate(`/chat/${selected}`, { replace: true });
           }
+        } else {
+          setError(friendlyError(conversationsResult.reason));
         }
-      })
-      .catch(loadError => {
-        if (active) setError(friendlyError(loadError));
+        if (usageResult.status === "fulfilled") {
+          setUsage(usageResult.value.usage);
+          setUsageError("");
+        } else {
+          setUsageError(friendlyError(usageResult.reason));
+        }
       })
       .finally(() => {
         if (active) setLoadingConversations(false);
@@ -157,16 +192,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     let active = true;
-    const requestTimer = window.setTimeout(() => loadUsage().catch(loadError => {
-      if (active) setUsageError(friendlyError(loadError));
-    }), 0);
     const timer = window.setInterval(() => setClock(Date.now()), 1000);
     return () => {
       active = false;
-      window.clearTimeout(requestTimer);
       window.clearInterval(timer);
     };
-  }, [loadUsage]);
+  }, []);
 
   useEffect(() => {
     if (!usage || clock === null || clock < new Date(usage.resetAt).getTime() || lastResetFetchedRef.current === usage.resetAt) return undefined;
@@ -199,6 +230,57 @@ export default function ChatPage() {
       });
     return undefined;
   }, [selectedId]);
+
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
+
+  useEffect(() => () => {
+    attachmentsRef.current.forEach(item => {
+      if (item.preview) URL.revokeObjectURL(item.preview);
+    });
+  }, []);
+
+  function revokeAttachmentPreviews(items) {
+    items.forEach(item => {
+      if (item.preview) URL.revokeObjectURL(item.preview);
+    });
+  }
+
+  function addAttachmentFiles(fileList, kind) {
+    const files = [...fileList];
+    if (!files.length) return;
+    setAttachmentError("");
+    setAttachments(current => {
+      const next = [...current];
+      for (const file of files) {
+        if (next.length >= MAX_CHAT_ATTACHMENTS) {
+          setAttachmentError(`You can attach up to ${MAX_CHAT_ATTACHMENTS} items.`);
+          break;
+        }
+        if (file.size > MAX_ATTACHMENT_BYTES) {
+          setAttachmentError(`${attachmentDisplayName(file)} exceeds ${formatAttachmentSize(MAX_ATTACHMENT_BYTES)}.`);
+          continue;
+        }
+        const duplicate = next.some(item => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
+        if (duplicate) continue;
+        next.push({
+          id: crypto.randomUUID(),
+          file,
+          kind,
+          preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+        });
+      }
+      return next;
+    });
+  }
+
+  function removeAttachment(id) {
+    setAttachments(current => {
+      const target = current.find(item => item.id === id);
+      if (target?.preview) URL.revokeObjectURL(target.preview);
+      return current.filter(item => item.id !== id);
+    });
+  }
 
   useEffect(() => {
     if (skipAutoScrollRef.current) {
@@ -334,7 +416,31 @@ export default function ChatPage() {
         { id: `${turnId}-assistant`, turnId, role: "assistant", content: "", status: "streaming", createdAt: new Date().toISOString() },
       ]);
     }
-    if (!regenerate) setDraft("");
+    if (!regenerate) {
+      setDraft("");
+      setAttachments(current => {
+        revokeAttachmentPreviews(current);
+        return [];
+      });
+    }
+
+    function flushStreamDraft() {
+      streamFrameRef.current = null;
+      if (selectedRef.current !== conversationId) return;
+      const { turnId: activeTurnId, content } = streamDraftRef.current;
+      if (!activeTurnId) return;
+      setMessages(current => current.map(message => message.id === `${activeTurnId}-assistant`
+        ? { ...message, content }
+        : message));
+    }
+
+    function queueStreamDelta(deltaText) {
+      streamDraftRef.current.content += deltaText;
+      if (streamFrameRef.current) return;
+      streamFrameRef.current = requestAnimationFrame(flushStreamDraft);
+    }
+
+    streamDraftRef.current = { turnId, content: "" };
 
     try {
       const assistant = await api.chat.stream({
@@ -344,17 +450,15 @@ export default function ChatPage() {
         regenerate,
         signal: controller.signal,
         onEvent(event, payload) {
-          if (event === "delta" && selectedRef.current === conversationId) {
-            setMessages(current => current.map(message => message.id === `${turnId}-assistant`
-              ? { ...message, content: message.content + payload.text }
-              : message));
-          }
+          if (selectedRef.current !== conversationId) return;
+          if (event === "delta" && payload.text) queueStreamDelta(payload.text);
         },
       });
+      flushStreamDraft();
       if (assistant && selectedRef.current === conversationId) {
         setMessages(current => current.map(message => message.id === assistant.id ? assistant : message));
       }
-      await loadConversations();
+      loadConversations().catch(() => {});
     } catch (turnError) {
       if (selectedRef.current === conversationId) {
         setMessages(current => current.map(message => message.id === `${turnId}-assistant`
@@ -365,11 +469,12 @@ export default function ChatPage() {
       if (message) setError(message);
       loadConversations().catch(loadError => setError(friendlyError(loadError)));
     } finally {
-      try {
-        await loadUsage();
-      } catch (loadError) {
-        setUsageError(friendlyError(loadError));
+      streamDraftRef.current = { turnId: "", content: "" };
+      if (streamFrameRef.current) {
+        cancelAnimationFrame(streamFrameRef.current);
+        streamFrameRef.current = null;
       }
+      loadUsage().catch(loadError => setUsageError(friendlyError(loadError)));
       if (controllerRef.current === controller) {
         controllerRef.current = null;
         setSending(false);
@@ -379,10 +484,12 @@ export default function ChatPage() {
 
   function submitMessage(event) {
     event.preventDefault();
-    const text = draft.trim();
+    const text = buildMessageWithAttachments(draft, attachments);
     if (!text || sending) return;
     runTurn({ text });
   }
+
+  const canSend = Boolean(draft.trim() || attachments.length) && !loadingConversations && !loadingMessages && !atLimit;
 
   function handleComposerKeyDown(event) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -576,11 +683,15 @@ export default function ChatPage() {
                     </form>
                   ) : (
                     <>
-                      <div className="chat-bubble-content">
-                        {message.content
+                      <div className={`chat-bubble-content${message.status === "streaming" ? " is-streaming" : ""}`}>
+                        {message.role === "assistant" && message.status === "streaming" ? (
+                          <>
+                            {!message.content && <span className="chat-typing-indicator" aria-label="AI is responding"><i /><i /><i /></span>}
+                            {message.content ? <p className="chat-streaming-text">{message.content}<span className="chat-stream-cursor" aria-hidden="true" /></p> : null}
+                          </>
+                        ) : message.content
                           ? message.role === "assistant" ? <MessageContent content={message.content} /> : <p>{message.content}</p>
-                          : message.status === "streaming" ? <span className="chat-typing-indicator" aria-label="AI is responding"><i /><i /><i /></span>
-                            : ["failed", "stopping"].includes(message.status) ? <p className="chat-stopped-message">{message.status === "stopping" ? "Stopping response…" : "Response stopped. You can try again."}</p> : null}
+                          : ["failed", "stopping"].includes(message.status) ? <p className="chat-stopped-message">{message.status === "stopping" ? "Stopping response…" : "Response stopped. You can try again."}</p> : null}
                       </div>
                       <div className="chat-message-actions">
                         {message.role === "user" && message.status === "complete" && !sending && (
@@ -616,17 +727,53 @@ export default function ChatPage() {
         </div>
 
         {error && <div className="chat-error-banner" role="alert"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={() => setError("")}>×</button></div>}
-        <form className="chat-composer" onSubmit={submitMessage}>
-          <label className="chat-composer-label" htmlFor="chat-message-input">Message NoteFlow AI</label>
-          <textarea id="chat-message-input" value={draft} maxLength={12000} onChange={event => setDraft(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder={atLimit ? "Daily message limit reached" : "Message NoteFlow AI…"} rows={1} disabled={loadingConversations || loadingMessages || atLimit} />
-          <div className="chat-composer-footer">
-            <span>Enter to send · Shift + Enter for a new line</span>
-            {sending
-              ? <button className="chat-send-button chat-stop-button" type="button" onClick={stopGeneration}><span aria-hidden="true">■</span> Stop</button>
-              : <button className="chat-send-button" type="submit" disabled={!draft.trim() || loadingConversations || loadingMessages || atLimit}><span aria-hidden="true">↑</span> Send</button>}
-          </div>
-        </form>
-        <p className="chat-disclaimer">AI can make mistakes. Check important information.</p>
+        <div className="chat-composer-dock">
+          <form className="chat-composer" onSubmit={submitMessage}>
+            <label className="chat-composer-label" htmlFor="chat-message-input">Message NoteFlow AI</label>
+            {attachments.length > 0 && (
+              <ul className="chat-attachment-list" aria-label="Selected attachments">
+                {attachments.map(item => (
+                  <li className="chat-attachment-chip" key={item.id}>
+                    {item.preview
+                      ? <img className="chat-attachment-thumb" src={item.preview} alt="" />
+                      : <span className="chat-attachment-icon" aria-hidden="true">{item.kind === "folder" ? "📁" : "📄"}</span>}
+                    <div className="chat-attachment-meta">
+                      <strong>{attachmentDisplayName(item.file)}</strong>
+                      <span>{formatAttachmentSize(item.file.size)}</span>
+                    </div>
+                    <button className="chat-attachment-remove" type="button" aria-label={`Remove ${attachmentDisplayName(item.file)}`} onClick={() => removeAttachment(item.id)}>×</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {attachmentError && <p className="chat-attachment-error" role="alert">{attachmentError}</p>}
+            <div className="chat-attach-toolbar" aria-label="Add attachments">
+              <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => imageInputRef.current?.click()}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14l-4.5-6-3.5 4.5-2.5-3L5 19Zm14-14H5v11.17l4.5-6 3.5 4.5 2.5-3L19 10.83V5Zm0-2c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h14Z" /></svg>
+                <span>Image</span>
+              </button>
+              <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => fileInputRef.current?.click()}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm-1 2 5 5h-5V4ZM8 13h8v2H8v-2Zm0 4h8v2H8v-2Z" /></svg>
+                <span>Files</span>
+              </button>
+              <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => folderInputRef.current?.click()}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6Zm0 2H4v12h16V8h-8l-2-2Z" /></svg>
+                <span>Folder</span>
+              </button>
+            </div>
+            <input ref={imageInputRef} type="file" accept="image/*" multiple hidden onChange={event => { addAttachmentFiles(event.target.files || [], "image"); event.target.value = ""; }} />
+            <input ref={fileInputRef} type="file" multiple hidden onChange={event => { addAttachmentFiles(event.target.files || [], "file"); event.target.value = ""; }} />
+            <input ref={folderInputRef} type="file" multiple hidden webkitdirectory="" directory="" onChange={event => { addAttachmentFiles(event.target.files || [], "folder"); event.target.value = ""; }} />
+            <textarea id="chat-message-input" className="chat-composer-input" value={draft} maxLength={12000} onChange={event => setDraft(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder={atLimit ? "Daily message limit reached" : "Message NoteFlow AI…"} rows={1} disabled={loadingConversations || loadingMessages || atLimit} />
+            <div className="chat-composer-footer">
+              <span>Enter to send · Shift + Enter for a new line</span>
+              {sending
+                ? <button className="chat-send-button chat-stop-button" type="button" onClick={stopGeneration}><span aria-hidden="true">■</span> Stop</button>
+                : <button className="chat-send-button" type="submit" disabled={!canSend}><span aria-hidden="true">↑</span> Send</button>}
+            </div>
+          </form>
+          <p className="chat-disclaimer">AI can make mistakes. Check important information.</p>
+        </div>
       </div>
     </section>
   );
