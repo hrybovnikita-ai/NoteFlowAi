@@ -624,6 +624,7 @@ export default function ChatPage() {
       </aside>
 
       <div className="chat-conversation">
+        <div className="chat-conversation-inner">
         <header className="chat-header">
           <button className="chat-icon-button chat-history-toggle" type="button" aria-label="Toggle chat history" aria-expanded={historyOpen} onClick={() => setHistoryOpen(open => !open)}>☰</button>
           <div className="chat-header-copy"><span className="chat-eyebrow">NOTEFLOW AI</span><h1>{lastConversation?.title || "AI Chat"}</h1></div>
@@ -747,32 +748,35 @@ export default function ChatPage() {
               </ul>
             )}
             {attachmentError && <p className="chat-attachment-error" role="alert">{attachmentError}</p>}
-            <div className="chat-attach-toolbar" aria-label="Add attachments">
-              <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => imageInputRef.current?.click()}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14l-4.5-6-3.5 4.5-2.5-3L5 19Zm14-14H5v11.17l4.5-6 3.5 4.5 2.5-3L19 10.83V5Zm0-2c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h14Z" /></svg>
-                <span>Image</span>
-              </button>
-              <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => fileInputRef.current?.click()}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm-1 2 5 5h-5V4ZM8 13h8v2H8v-2Zm0 4h8v2H8v-2Z" /></svg>
-                <span>Files</span>
-              </button>
-              <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => folderInputRef.current?.click()}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6Zm0 2H4v12h16V8h-8l-2-2Z" /></svg>
-                <span>Folder</span>
-              </button>
-            </div>
             <input ref={imageInputRef} type="file" accept="image/*" multiple hidden onChange={event => { addAttachmentFiles(event.target.files || [], "image"); event.target.value = ""; }} />
             <input ref={fileInputRef} type="file" multiple hidden onChange={event => { addAttachmentFiles(event.target.files || [], "file"); event.target.value = ""; }} />
             <input ref={folderInputRef} type="file" multiple hidden webkitdirectory="" directory="" onChange={event => { addAttachmentFiles(event.target.files || [], "folder"); event.target.value = ""; }} />
             <textarea id="chat-message-input" className="chat-composer-input" value={draft} maxLength={12000} onChange={event => setDraft(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder={atLimit ? "Daily message limit reached" : "Message NoteFlow AI…"} rows={1} disabled={loadingConversations || loadingMessages || atLimit} />
-            <div className="chat-composer-footer">
-              <span>Enter to send · Shift + Enter for a new line</span>
-              {sending
-                ? <button className="chat-send-button chat-stop-button" type="button" onClick={stopGeneration}><span aria-hidden="true">■</span> Stop</button>
-                : <button className="chat-send-button" type="submit" disabled={!canSend}><span aria-hidden="true">↑</span> Send</button>}
+            <div className="chat-composer-toolbar">
+              <div className="chat-attach-toolbar" aria-label="Add attachments">
+                <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => imageInputRef.current?.click()}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14l-4.5-6-3.5 4.5-2.5-3L5 19Zm14-14H5v11.17l4.5-6 3.5 4.5 2.5-3L19 10.83V5Zm0-2c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h14Z" /></svg>
+                  <span>Image</span>
+                </button>
+                <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => fileInputRef.current?.click()}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm-1 2 5 5h-5V4ZM8 13h8v2H8v-2Zm0 4h8v2H8v-2Z" /></svg>
+                  <span>Files</span>
+                </button>
+                <button className="chat-attach-button" type="button" disabled={sending || atLimit} onClick={() => folderInputRef.current?.click()}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6Zm0 2H4v12h16V8h-8l-2-2Z" /></svg>
+                  <span>Folder</span>
+                </button>
+              </div>
+              <div className="chat-composer-send-slot">
+                {sending
+                  ? <button className="chat-send-button chat-stop-button" type="button" onClick={stopGeneration}><span aria-hidden="true">■</span> Stop</button>
+                  : <button className="chat-send-button" type="submit" disabled={!canSend}><span aria-hidden="true">↑</span> Send</button>}
+              </div>
             </div>
+            <p className="chat-composer-hint">Enter to send · Shift + Enter for a new line</p>
           </form>
           <p className="chat-disclaimer">AI can make mistakes. Check important information.</p>
+        </div>
         </div>
       </div>
     </section>
