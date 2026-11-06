@@ -6,7 +6,7 @@ const { requireId, requireObject, requireString } = require("../utils/validation
 const { randomUUID } = require("node:crypto");
 
 const ALLOWED_FIELDS = new Set(["noteId", "title", "content", "question"]);
-const ACTIONS = new Set(["summarize", "improve", "title", "tags", "ask"]);
+const ACTIONS = new Set(["summarize", "improve", "fix-grammar", "translate", "keypoints", "title", "tags", "ask"]);
 
 async function parseAiInput(body, action, db, userId) {
   requireObject(body);

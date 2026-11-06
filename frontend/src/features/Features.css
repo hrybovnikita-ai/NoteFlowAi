@@ -51,6 +51,14 @@
 .feature-diff ins { background: rgb(34 197 94 / 18%); text-decoration: none; }
 .feature-diff del { background: rgb(244 63 94 / 18%); }
 @keyframes featureFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-@media (max-width: 960px) {
+@media (max-width: 768px) {
   .feature-split, .feature-kanban { grid-template-columns: 1fr; }
+  .feature-search-row { grid-template-columns: minmax(0, 1fr); }
+  .feature-task-form-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .feature-kanban { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .feature-page { max-width: 100%; }
 }

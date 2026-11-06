@@ -1,4 +1,5 @@
-﻿:root {
+﻿/* Responsive breakpoints (max-width): 480 phone · 768 tablet · 1024 laptop · 1440 large desktop */
+:root {
   --text: #A8A3B8;
   --text-h: #F8F7FC;
   --bg: #09070F;
@@ -13,10 +14,16 @@
   --accent-bg: rgb(192 132 252 / 12%);
   --accent-border: rgb(192 132 252 / 40%);
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --container-max: 192rem;
-  --page-gutter: clamp(1.25rem, 3vw, 5rem);
-  --section-space: 3rem;
-  --card-padding: 1.25rem;
+  --safe-block-start: env(safe-area-inset-top, 0px);
+  --safe-block-end: env(safe-area-inset-bottom, 0px);
+  --page-inline-start: max(var(--page-gutter), env(safe-area-inset-left, 0px));
+  --page-inline-end: max(var(--page-gutter), env(safe-area-inset-right, 0px));
+  /* Fluid page width: scales from phone through ultra-wide; caps content width on large screens */
+  --container-max: min(100%, 90rem);
+  --page-gutter: clamp(0.875rem, 2.5vw, 3.25rem);
+  --section-space: clamp(2.25rem, 5vw, 5.5rem);
+  --card-padding: clamp(1rem, 2vw, 2rem);
+  --touch-target: 2.75rem;
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.65;
@@ -28,8 +35,15 @@
   -webkit-font-smoothing: antialiased;
 }
 *, *::before, *::after { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text); }
-#root { min-height: 100svh; }
+html { overflow-x: clip; }
+body {
+  margin: 0;
+  padding-block: var(--safe-block-start) var(--safe-block-end);
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: clip;
+}
+#root { min-height: 100svh; min-height: 100dvh; }
 h1, h2, h3 { color: var(--text-h); line-height: 1.2; overflow-wrap: anywhere; }
 h1, h2, h3, p { margin-top: 0; }
 p { margin-bottom: 0; }
@@ -42,33 +56,16 @@ img, svg, video { max-width: 100%; height: auto; }
 :where(section, main) { scroll-margin-block-start: 1.5rem; }
 /* Shared shell for current sections and future pages. Width excludes gutters. */
 .page-container, .navbar, .main-content, .site-footer {
-  width: min(calc(100% - var(--page-gutter) * 2), var(--container-max));
+  width: min(calc(100% - var(--page-inline-start) - var(--page-inline-end)), var(--container-max));
+  max-width: 100%;
   margin-inline: auto;
+  box-sizing: border-box;
 }
-/* Fluid spacing scales from compact phones through ultra-wide displays. */
 @media (max-width: 480px) {
-  :root { --page-gutter: 1rem; --section-space: 3.25rem; --card-padding: 1.125rem; }
+  :root { --page-gutter: clamp(0.75rem, 4.2vw, 1rem); }
 }
-@media (min-width: 481px) and (max-width: 767px) {
-  :root { --page-gutter: 1.5rem; --section-space: 3.75rem; --card-padding: 1.5rem; }
-}
-@media (min-width: 768px) and (max-width: 1023px) {
-  :root { --page-gutter: 2rem; --section-space: 4.25rem; --card-padding: 1.75rem; }
-}
-@media (min-width: 1024px) and (max-width: 1279px) {
-  :root { --page-gutter: 2rem; --section-space: 4.5rem; --card-padding: 1.5rem; }
-}
-@media (min-width: 1280px) and (max-width: 1599px) {
-  :root { --page-gutter: 2.5rem; --section-space: 5rem; --card-padding: 1.75rem; }
-}
-@media (min-width: 1600px) and (max-width: 1919px) {
-  :root { --page-gutter: 3rem; --section-space: 5.5rem; --card-padding: 2rem; }
-}
-@media (min-width: 1920px) and (max-width: 2559px) {
-  :root { --page-gutter: 4rem; --section-space: 6rem; --card-padding: 2.25rem; }
-}
-@media (min-width: 2560px) {
-  :root { --page-gutter: 5rem; --section-space: 6.5rem; --card-padding: 2.5rem; }
+@media (min-width: 1440px) {
+  :root { --container-max: min(100%, 92rem); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }

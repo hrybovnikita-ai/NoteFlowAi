@@ -2,7 +2,7 @@
 .pricing-page .pricing-card { min-height: 24rem; }
 .pricing-page .pricing-card > button { margin-top: auto; }
 .dashboard-pricing-page .pricing-note { color: var(--text); }
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .pricing-page .pricing-grid { grid-template-columns: minmax(0, 1fr); }
   .pricing-page .pricing-card { min-height: 0; }
 }

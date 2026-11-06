@@ -37,6 +37,9 @@ function auth(user = "alice") {
 const generated = {
   summarize: "A concise summary.",
   improve: "The revised note.",
+  "fix-grammar": "The grammar-fixed note.",
+  translate: "The translated note.",
+  keypoints: "- First point\n- Second point",
   title: "A useful title",
   tags: ["research", "planning", "ideas"],
   ask: "The answer from the note.",
@@ -59,18 +62,18 @@ test("AI actions return consistent JSON results from the service", async (t) => 
   });
   t.after(() => db.close());
 
-  for (const action of ["summarize", "improve", "title", "tags", "ask"]) {
+  for (const action of ["summarize", "improve", "fix-grammar", "translate", "keypoints", "title", "tags", "ask"]) {
     const body = { title: "Test", content: "A note about planning." };
     if (action === "ask") body.question = "What is this about?";
     const response = await request(app)
-      .post(`/api/ai/${action}`)
+      .post(`/api/ai/${encodeURIComponent(action)}`)
       .set(auth())
       .send(body)
       .expect(200);
     assert.deepEqual(response.body, { result: generated[action] });
   }
-  assert.equal(calls.length, 5);
-  assert.equal(calls[4].input.question, "What is this about?");
+  assert.equal(calls.length, 8);
+  assert.equal(calls[7].input.question, "What is this about?");
 });
 
 test("Free accounts cannot call paid AI summaries", async t => {

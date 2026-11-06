@@ -1,4 +1,4 @@
-﻿.main-content { overflow-wrap: anywhere; }
+﻿.main-content { overflow-x: clip; overflow-wrap: anywhere; }
 .main-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: center; gap: clamp(2rem, 4vw, 4.5rem); padding-block: var(--section-space); }
 .main-hero > *, .main-playground > *, .main-feature { min-width: 0; }
 .main-eyebrow { display: inline-block; color: var(--accent); font-size: .75rem; font-weight: 700; letter-spacing: .12em; }
@@ -76,23 +76,23 @@
   .main-feature:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: var(--glow); }
 }
 @keyframes main-arrive { from { opacity: 0; translate: 0 .75rem; } to { opacity: 1; translate: 0 0; } }
-@media (max-width: 1023px) {
-  .main-hero { grid-template-columns: minmax(0, 1fr); gap: 3rem; }
-  .main-hero-copy { max-width: 44rem; }
+@media (max-width: 1024px) {
+  .main-hero { grid-template-columns: minmax(0, 1fr); gap: clamp(2rem, 5vw, 3rem); }
+  .main-hero-copy { max-width: min(44rem, 100%); }
   .main-hero h1 { font-size: clamp(2.25rem, 7vw, 4rem); }
-  .main-preview { width: 100%; max-width: 44rem; justify-self: center; transform: none; }
+  .main-preview { width: 100%; max-width: min(44rem, 100%); justify-self: center; transform: none; }
   .main-playground, .contact-section { grid-template-columns: minmax(0, 1fr); }
   .contact-art { min-height: 14rem; }
 }
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (min-width: 769px) and (max-width: 1024px) {
   .main-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .main-feature:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .testimonial-grid, .pricing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .testimonial-card:last-child, .pricing-card:last-child { grid-column: auto; }
 }
-@media (max-width: 767px) {
+@media (max-width: 768px) {
   .main-feature-grid, .testimonial-grid, .pricing-grid { grid-template-columns: minmax(0, 1fr); }
-  .main-preview { max-width: 36rem; }
+  .main-preview { max-width: min(36rem, 100%); }
   .section-heading { align-items: flex-start; flex-direction: column; gap: .75rem; }
   .testimonial-card { min-height: 0; }
   .contact-section { min-height: 0; gap: 1rem; }

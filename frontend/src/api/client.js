@@ -10,12 +10,17 @@ const http = axios.create({
 });
 
 function apiError(error) {
-  const message = error.response?.data?.error?.message
+  const payloadMessage = error.response?.data?.error?.message;
+  const status = error.response?.status;
+  let message = payloadMessage
     || (error.code === "ECONNABORTED"
       ? "The API request timed out. Please try again."
       : error.response
-        ? `The API request failed (${error.response.status}).`
+        ? `The API request failed (${status}).`
         : "Could not connect to the NoteFlow AI API. Make sure the backend is running.");
+  if (status === 429 && !payloadMessage) {
+    message = "AI rate limit reached. Please try again in a moment.";
+  }
   return Object.assign(new Error(message, { cause: error }), {
     code: error.response?.data?.error?.code,
     status: error.response?.status,
@@ -233,6 +238,9 @@ export const api = {
     usage: () => request("/ai/usage"),
     summarize: (input) => request("/ai/summarize", { method: "POST", body: input }),
     improve: (input) => request("/ai/improve", { method: "POST", body: input }),
+    fixGrammar: (input) => request("/ai/fix-grammar", { method: "POST", body: input }),
+    translate: (input) => request("/ai/translate", { method: "POST", body: input }),
+    keypoints: (input) => request("/ai/keypoints", { method: "POST", body: input }),
     title: (input) => request("/ai/title", { method: "POST", body: input }),
     tags: (input) => request("/ai/tags", { method: "POST", body: input }),
     ask: (input) => request("/ai/ask", { method: "POST", body: input }),

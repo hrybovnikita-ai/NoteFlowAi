@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth/useAuth";
 import "./App.css";
@@ -206,9 +207,11 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
                   type="button"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   aria-pressed={showPassword}
+                  aria-controls="auth-password"
+                  title={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword((visible) => !visible)}
                 >
-                  {showPassword ? "Hide" : "Show"}
+                  {showPassword ? <EyeOff size={22} strokeWidth={2} aria-hidden /> : <Eye size={22} strokeWidth={2} aria-hidden />}
                 </button>
               </div>
             </>
@@ -217,15 +220,28 @@ function LandingPage({ onEmailPasswordAuth, onGoogleSignIn, onPasswordReset, aut
           {authMode === "signup" && (
             <>
               <label htmlFor="auth-confirm-password">Confirm password</label>
-              <input
-                id="auth-confirm-password"
-                name="confirmPassword"
-                type={showPassword ? "text" : "password"}
-                autoComplete="new-password"
-                placeholder="Re-enter your password"
-                minLength={8}
-                required
-              />
+              <div className="auth-password-field">
+                <input
+                  id="auth-confirm-password"
+                  name="confirmPassword"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Re-enter your password"
+                  minLength={8}
+                  required
+                />
+                <button
+                  className="auth-password-toggle"
+                  type="button"
+                  aria-label={showPassword ? "Hide confirm password" : "Show confirm password"}
+                  aria-pressed={showPassword}
+                  aria-controls="auth-confirm-password"
+                  title={showPassword ? "Hide confirm password" : "Show confirm password"}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff size={22} strokeWidth={2} aria-hidden /> : <Eye size={22} strokeWidth={2} aria-hidden />}
+                </button>
+              </div>
             </>
           )}
 

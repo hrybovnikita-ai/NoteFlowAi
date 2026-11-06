@@ -3,14 +3,15 @@
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, rgb(20 18 31 / 65%), rgb(9 9 15 / 35%));
   backdrop-filter: blur(16px);
+  padding-inline: max(0px, env(safe-area-inset-left, 0px)) max(0px, env(safe-area-inset-right, 0px));
 }
 .navbar {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 1.5rem;
-  padding-block: 1.25rem;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  padding-block: clamp(0.875rem, 2vw, 1.25rem);
 }
 .logo { display: inline-flex; align-items: center; gap: .55rem; font-size: clamp(1.125rem, 1.5vw, 1.375rem); font-weight: 700; color: var(--text-h); text-decoration: none; }
 .logo img { width: 2rem; height: 2rem; border-radius: .55rem; object-fit: cover; }
@@ -18,7 +19,11 @@
 .nav-links a { display: inline-flex; align-items: center; min-height: 2.75rem; text-decoration: none; transition: color .2s; }
 .nav-links a:hover { color: var(--accent); }
 .nav-actions { display: flex; justify-self: end; flex-wrap: wrap; gap: .75rem; }
-.nav-menu-toggle { display: none; }
+.nav-menu-toggle {
+  display: none;
+  min-width: max(2.75rem, var(--touch-target, 2.75rem));
+  min-height: max(2.75rem, var(--touch-target, 2.75rem));
+}
 .btn-primary, .btn-secondary, .main-button {
   display: inline-flex;
   justify-content: center;
@@ -89,23 +94,28 @@
   color: var(--text-h);
 }
 .auth-password-field { position: relative; }
-.auth-password-field input { padding-right: 4.5rem; }
+.auth-password-field input { padding-right: 3.5rem; }
 .auth-password-toggle {
   position: absolute;
   top: 50%;
-  right: .75rem;
-  min-height: 2rem;
-  padding: .25rem .375rem;
+  right: .375rem;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0;
+  padding: 0;
   transform: translateY(-50%);
-  border: 0;
-  border-radius: .375rem;
+  border: 1px solid transparent;
+  border-radius: .5rem;
   background: transparent;
   color: var(--accent);
-  font-size: .8125rem;
-  font-weight: 600;
   cursor: pointer;
+  transition: background-color .18s ease, color .18s ease, border-color .18s ease;
 }
-.auth-password-toggle:hover { background: var(--accent-bg); }
+.auth-password-toggle:hover { background: rgb(168 85 247 / 14%); border-color: rgb(168 85 247 / 35%); color: var(--violet); }
+.auth-password-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auth-password-toggle svg { flex-shrink: 0; }
 .auth-form input::placeholder { color: var(--text); opacity: .8; }
 .auth-submit, .auth-google {
   display: inline-flex;
@@ -141,13 +151,14 @@
 .auth-mode-switch button:hover { color: var(--text-h); text-decoration: underline; }
 .auth-inline-action { justify-self: end; padding: .2rem 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: .82rem; cursor: pointer; }
 .auth-inline-action:hover { color: var(--text-h); text-decoration: underline; }
-@media (max-width: 1023px) {
+@media (max-width: 1024px) {
   .navbar { grid-template-columns: minmax(0, 1fr) auto; gap: .5rem 1rem; padding-block: 1rem; }
   .nav-menu-toggle {
     display: grid;
     place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    justify-self: end;
+    width: max(2.75rem, var(--touch-target, 2.75rem));
+    height: max(2.75rem, var(--touch-target, 2.75rem));
     border: 1px solid var(--border);
     border-radius: .75rem;
     background: var(--bg-secondary);
@@ -175,16 +186,27 @@
   .nav-actions { gap: .75rem; }
   .nav-actions > button { flex: 1 1 9rem; }
   .navbar.is-menu-open .nav-links, .navbar.is-menu-open .nav-actions {
-    max-height: 10rem;
+    max-height: min(70dvh, 24rem);
     opacity: 1;
     visibility: visible;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .navbar.is-menu-open .nav-links { padding-top: .75rem; border-top-color: var(--border); }
 }
+@media (max-width: 768px) {
+  .nav-links { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 480px) {
   .nav-actions { gap: .5rem; }
-  .nav-actions > button { flex-basis: 7rem; padding-inline: .625rem; font-size: .875rem; }
-  .auth-dialog { padding: 1.25rem; border-radius: 1rem; }
+  .nav-actions > button { flex: 1 1 auto; min-width: 0; min-height: var(--touch-target, 2.75rem); padding-inline: clamp(.5rem, 3vw, .875rem); font-size: clamp(.8125rem, 3.5vw, .9375rem); }
+  .auth-dialog {
+    width: min(calc(100% - max(1.5rem, env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px))), 28rem);
+    margin-block: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-bottom, 0px));
+    padding: 1.25rem;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    border-radius: 1rem;
+  }
   .auth-dialog h2 { padding-right: 1.75rem; }
   .auth-dialog > p { font-size: .9rem; }
 }

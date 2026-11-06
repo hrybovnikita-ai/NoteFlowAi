@@ -1,6 +1,7 @@
 import { BillingSettings } from "../../billing/Billing";
 import { getFirebaseAuthMessage } from "../../auth/firebaseAuthErrors";
 import { useAuth } from "../../auth/useAuth";
+import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Link,
@@ -313,6 +314,42 @@ function NoteEditorPage() {
   const [aiError, setAiError] = useState("");
   const [aiDraft, setAiDraft] = useState(null);
   const [aiQuestion, setAiQuestion] = useState("");
+  const [copyDone, setCopyDone] = useState(false);
+
+  const aiRequestMethods = {
+    summarize: body => api.ai.summarize(body),
+    improve: body => api.ai.improve(body),
+    "fix-grammar": body => api.ai.fixGrammar(body),
+    translate: body => api.ai.translate(body),
+    keypoints: body => api.ai.keypoints(body),
+    title: body => api.ai.title(body),
+    tags: body => api.ai.tags(body),
+    ask: body => api.ai.ask(body),
+  };
+
+  const aiAssistantLabels = {
+    summarize: "Summarize",
+    improve: "Improve writing",
+    "fix-grammar": "Fix grammar",
+    translate: "Translate",
+    keypoints: "Extract key points",
+  };
+
+  const aiDraftHeading = {
+    summarize: "Summary",
+    improve: "Improved writing",
+    "fix-grammar": "Grammar fixes",
+    translate: "Translation",
+    keypoints: "Key points",
+    title: "Suggested title",
+    tags: "Suggested tags",
+    ask: "AI answer",
+  };
+
+  function appliesAiDraftToContent() {
+    if (!aiDraft) return false;
+    return ["summarize", "improve", "fix-grammar", "translate", "keypoints"].includes(aiDraft.action);
+  }
 
   if (noteId && notesLoading) {
     return <p className="dashboard-search-status" role="status">Loading your note…</p>;
@@ -329,6 +366,13 @@ function NoteEditorPage() {
     setAiAction(action);
     setAiError("");
     setAiDraft(null);
+    setCopyDone(false);
+    const run = aiRequestMethods[action];
+    if (!run) {
+      setAiError("That AI action is not available.");
+      setAiAction("");
+      return;
+    }
     try {
       const input = {
         ...(existingNote ? { noteId: existingNote.id } : {}),
@@ -336,10 +380,18 @@ function NoteEditorPage() {
         content,
         ...(action === "ask" ? { question: aiQuestion } : {}),
       };
-      const result = await api.ai[action](input);
+      const result = await run(input);
       setAiDraft({ action, result: result.result });
     } catch (aiRequestError) {
-      setAiError(aiRequestError instanceof Error ? aiRequestError.message : "The AI request failed. Please try again.");
+      const err = aiRequestError instanceof Error ? aiRequestError : new Error("The AI request failed.");
+      let message = err.message;
+      if (err.status === 429 || err.code === "GEMINI_QUOTA_EXCEEDED") {
+        message = err.message || "AI rate limit reached. Please try again in a moment.";
+      }
+      if (err.code === "FEATURE_REQUIRES_PAID_PLAN") {
+        message = err.message || "This action requires a paid plan.";
+      }
+      setAiError(message);
     } finally {
       setAiAction("");
     }
@@ -349,8 +401,25 @@ function NoteEditorPage() {
     if (!aiDraft) return;
     if (aiDraft.action === "title") setTitle(aiDraft.result);
     if (aiDraft.action === "tags") setTagsText(aiDraft.result.join(", "));
-    if (aiDraft.action === "summarize" || aiDraft.action === "improve") setContent(aiDraft.result);
+    if (appliesAiDraftToContent()) setContent(typeof aiDraft.result === "string" ? aiDraft.result : "");
     setAiDraft(null);
+    setCopyDone(false);
+  }
+
+  function cancelAiDraft() {
+    setAiDraft(null);
+    setCopyDone(false);
+  }
+
+  async function copyAiDraft() {
+    if (!aiDraft) return;
+    const text = Array.isArray(aiDraft.result) ? aiDraft.result.join(", ") : String(aiDraft.result ?? "");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyDone(true);
+    } catch {
+      setAiError("Could not copy to the clipboard. You can select the text manually.");
+    }
   }
 
   async function handleSave(event) {
@@ -398,10 +467,23 @@ function NoteEditorPage() {
             <div><span className="dashboard-eyebrow">NOTE ASSISTANT</span><h2>AI writing tools</h2></div>
             <span className="dashboard-note-ai-model">Gemini</span>
           </div>
-          <div className="dashboard-note-ai-actions">
+          {existingNote && (
+            <div className="dashboard-note-ai-actions" role="group" aria-label="Note assistant for this saved note">
+              {Object.entries(aiAssistantLabels).map(([action, label]) => (
+                <button
+                  className="dashboard-secondary-button"
+                  key={action}
+                  type="button"
+                  disabled={!content.trim() || Boolean(aiAction) || isSaving}
+                  onClick={() => generateWithAi(action)}
+                >
+                  {aiAction === action ? `${label}…` : label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="dashboard-note-ai-actions" role="group" aria-label="More AI tools">
             {[
-              ["summarize", "Summarize"],
-              ["improve", "Improve writing"],
               ["title", "Generate title"],
               ["tags", "Suggest tags"],
             ].map(([action, label]) => (
@@ -440,12 +522,27 @@ function NoteEditorPage() {
           {aiError && <p className="dashboard-form-error" role="alert">{aiError}</p>}
           {aiAction && <p className="dashboard-search-status" role="status">Gemini is working on your note…</p>}
           {aiDraft && (
-            <div className="dashboard-note-ai-result">
-              <strong>{aiDraft.action === "ask" ? "AI answer" : "Review suggestion"}</strong>
-              <p>{Array.isArray(aiDraft.result) ? aiDraft.result.join(", ") : aiDraft.result}</p>
-              {aiDraft.action !== "ask" && (
-                <button className="dashboard-primary-button" type="button" onClick={applyAiDraft}>Apply suggestion</button>
-              )}
+            <div className="dashboard-note-ai-panel">
+              <div className="dashboard-note-ai-panel-header">
+                <strong>{aiDraftHeading[aiDraft.action] || "AI result"}</strong>
+                <span className="dashboard-note-ai-panel-hint">Review below. Your note stays unchanged until you apply.</span>
+              </div>
+              <div className="dashboard-note-ai-panel-body">
+                <p>{Array.isArray(aiDraft.result) ? aiDraft.result.join(", ") : aiDraft.result}</p>
+              </div>
+              <div className="dashboard-note-ai-panel-actions">
+                {appliesAiDraftToContent() || aiDraft.action === "title" || aiDraft.action === "tags" ? (
+                  <button className="dashboard-primary-button" type="button" onClick={applyAiDraft}>
+                    Apply
+                  </button>
+                ) : null}
+                <button className="dashboard-secondary-button" type="button" onClick={copyAiDraft}>
+                  {copyDone ? "Copied" : "Copy"}
+                </button>
+                <button className="dashboard-secondary-button" type="button" onClick={cancelAiDraft}>
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -485,6 +582,7 @@ function SettingsPage({ session, onLogout, logoutError }) {
   const { user, linkEmailPassword } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showLinkPassword, setShowLinkPassword] = useState(false);
   const [linkError, setLinkError] = useState("");
   const [linkSuccess, setLinkSuccess] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
@@ -511,6 +609,7 @@ function SettingsPage({ session, onLogout, logoutError }) {
       await linkEmailPassword(password);
       setPassword("");
       setConfirmPassword("");
+      setShowLinkPassword(false);
       setLinkSuccess("Password sign-in is now linked to this account.");
     } catch (error) {
       setLinkError(getFirebaseAuthMessage(error, "link"));
@@ -539,9 +638,35 @@ function SettingsPage({ session, onLogout, logoutError }) {
           <p>Link a password to {user.email || "this account"} so you can use either Google or email/password without creating a second account.</p>
           <form className="dashboard-editor-form" onSubmit={handlePasswordLink}>
             <label htmlFor="link-password">Password</label>
-            <input id="link-password" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} />
+            <div className="dashboard-password-field">
+              <input id="link-password" type={showLinkPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} />
+              <button
+                className="dashboard-password-toggle"
+                type="button"
+                aria-label={showLinkPassword ? "Hide password" : "Show password"}
+                aria-pressed={showLinkPassword}
+                aria-controls="link-password"
+                title={showLinkPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowLinkPassword((visible) => !visible)}
+              >
+                {showLinkPassword ? <EyeOff size={22} strokeWidth={2} aria-hidden /> : <Eye size={22} strokeWidth={2} aria-hidden />}
+              </button>
+            </div>
             <label htmlFor="link-password-confirm">Confirm password</label>
-            <input id="link-password-confirm" type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            <div className="dashboard-password-field">
+              <input id="link-password-confirm" type={showLinkPassword ? "text" : "password"} autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+              <button
+                className="dashboard-password-toggle"
+                type="button"
+                aria-label={showLinkPassword ? "Hide confirm password" : "Show confirm password"}
+                aria-pressed={showLinkPassword}
+                aria-controls="link-password-confirm"
+                title={showLinkPassword ? "Hide confirm password" : "Show confirm password"}
+                onClick={() => setShowLinkPassword((visible) => !visible)}
+              >
+                {showLinkPassword ? <EyeOff size={22} strokeWidth={2} aria-hidden /> : <Eye size={22} strokeWidth={2} aria-hidden />}
+              </button>
+            </div>
             {linkError && <p className="dashboard-form-error" role="alert">{linkError}</p>}
             {linkSuccess && <p className="dashboard-search-status" role="status">{linkSuccess}</p>}
             <button className="dashboard-primary-button" type="submit" disabled={linkBusy}>{linkBusy ? "Linking…" : "Add password sign-in"}</button>
